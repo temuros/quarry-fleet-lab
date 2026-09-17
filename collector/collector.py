@@ -63,6 +63,28 @@ lag_window = defaultdict(deque)   # fleet -> (wall, lag)
 STARTED_AT = time.time()
 
 WINDOW_SIM_SEC = WINDOW_SIM_H * 3600
+RESTART_TOLERANCE_SEC = 60.0   # часы карьера ушли назад, значит парк перезапустили
+
+
+def note_clock(strategy, t_sim):
+    """Часы карьера у парка. Если они ушли назад, симулятор перезапустили.
+
+    Без этого приёмник смешивал бы два прогона: окна считались бы по меткам
+    старого, а показатели ползли бы неизвестно куда.
+    """
+    previous = sim_clock.get(strategy, 0.0)
+    if t_sim < previous - RESTART_TOLERANCE_SEC:
+        print("[collector] парк {} начал заново, состояние сброшено".format(strategy), flush=True)
+        win_tons.pop(strategy, None)
+        win_cycle.pop(strategy, None)
+        win_wait.pop(strategy, None)
+        for key in [k for k in win_exc if k[0] == strategy]:
+            win_exc.pop(key, None)
+        for key in [k for k in truck_state if k[0] == strategy]:
+            truck_state.pop(key, None)
+        sim_clock[strategy] = t_sim
+        return
+    sim_clock[strategy] = max(previous, t_sim)
 
 
 def trim(dq, now_sim, span=WINDOW_SIM_SEC):
@@ -74,7 +96,7 @@ def handle_telemetry(msg):
     strategy = msg.get("strategy", "?")
     fleet = msg.get("fleet", strategy)
     t_sim = float(msg.get("t_sim", 0))
-    sim_clock[strategy] = max(sim_clock[strategy], t_sim)
+    note_clock(strategy, t_sim)
 
     lag = max(0.0, time.time() - float(msg.get("t_wall", time.time())))
     wall = time.time()
@@ -97,7 +119,7 @@ def handle_event(msg):
     strategy = msg.get("strategy", "?")
     fleet = msg.get("fleet", strategy)
     t_sim = float(msg.get("t_sim", 0))
-    sim_clock[strategy] = max(sim_clock[strategy], t_sim)
+    note_clock(strategy, t_sim)
     kind = msg.get("event")
 
     if kind == "dump_completed":
