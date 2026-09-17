@@ -1,0 +1,127 @@
+services:
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: quarry-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 24
+      CLUSTER_ID: wqiL2YOzQPS9r4Hd0Czk6A
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:3.8.1
+    container_name: quarry-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic quarry.telemetry --partitions 3 --replication-factor 1 --config retention.ms=3600000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic quarry.events --partitions 3 --replication-factor 1 --config retention.ms=86400000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list"
+    restart: "no"
+
+  collector:
+    build: ./collector
+    container_name: quarry-collector
+    environment:
+      KAFKA_BROKER: kafka:9092
+      SLA_LAG_SEC: "5"
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  sim-fixed:
+    build: ./sim
+    container_name: quarry-sim-fixed
+    environment:
+      KAFKA_BROKER: kafka:9092
+      DISPATCH: fixed
+      FLEET: fixed
+      TRUCKS: "8"
+      SIM_SPEED: "60"
+      TELEMETRY_SEC: "5"
+      OUTAGE_EVERY_MIN: "0"
+      HTTP_PORT: "8080"
+    ports:
+      - "8081:8080"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  sim-balanced:
+    build: ./sim
+    container_name: quarry-sim-balanced
+    environment:
+      KAFKA_BROKER: kafka:9092
+      DISPATCH: balanced
+      FLEET: balanced
+      TRUCKS: "8"
+      SIM_SPEED: "60"
+      TELEMETRY_SEC: "5"
+      OUTAGE_EVERY_MIN: "90"
+      OUTAGE_DUR_MIN: "8"
+      HTTP_PORT: "8080"
+    ports:
+      - "8082:8080"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: quarry-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - collector
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: quarry-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: quarry
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  kafka-data:
+  prom-data:
+  grafana-data:
