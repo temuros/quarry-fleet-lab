@@ -1,7 +1,7 @@
 {
   "uid": "quarry-main",
   "title": "Карьер: горнотранспортный комплекс",
-  "tags": ["quarry", "oes"],
+  "tags": ["quarry", "telemetry"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,

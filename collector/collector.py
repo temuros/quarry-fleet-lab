@@ -20,7 +20,7 @@ TOPIC_EVENTS = os.getenv("TOPIC_EVENTS", "quarry.events")
 
 PORT = int(os.getenv("METRICS_PORT", "8000"))
 WINDOW_SIM_H = float(os.getenv("WINDOW_SIM_HOURS", "2"))       # окно скользящих средних
-SLA_LAG_SEC = float(os.getenv("SLA_LAG_SEC", "5"))             # порог задержки с витрины OES
+SLA_LAG_SEC = float(os.getenv("SLA_LAG_SEC", "5"))             # порог задержки по требованиям площадки
 UPTIME_WINDOW_SEC = int(os.getenv("UPTIME_WINDOW_SEC", "300"))  # окно доступности потока
 STALE_SIM_SEC = float(os.getenv("STALE_SIM_SEC", "120"))       # когда забыть машину
 
@@ -191,7 +191,9 @@ def main():
     print("[collector] метрики на :{}, брокер {}".format(PORT, BROKER), flush=True)
 
     while True:
-        batch = consumer.consume(num_messages=500, timeout=1.0)
+        # короткий таймаут: иначе ожидание пачки само добавляло бы секунду
+        # к измеряемой задержке приёма
+        batch = consumer.consume(num_messages=500, timeout=0.2)
         if not batch:
             continue
         with lock:
