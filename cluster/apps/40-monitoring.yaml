@@ -42,7 +42,7 @@ data:
     scrape_configs:
       - job_name: quarry-collector
         static_configs:
-          - targets: ["collector.quarry.svc.cluster.local:8000"]
+          - targets: ["collector:8000"]
 
       - job_name: kubernetes-nodes
         kubernetes_sd_configs: [{ role: node }]
@@ -115,13 +115,13 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        url: http://prometheus.quarry.svc.cluster.local:9090
+        url: http://prometheus:9090
         isDefault: true
         uid: quarry-prom
       - name: Журнал карьера
         type: postgres
         uid: quarry-journal
-        url: postgres-0.postgres.quarry.svc.cluster.local:5432
+        url: postgres-0.postgres:5432
         database: quarry
         user: quarry
         secureJsonData:

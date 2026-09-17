@@ -12,6 +12,10 @@ metadata:
   namespace: quarry
 spec:
   clusterIP: None
+  # Kafka обращается к себе по собственному имени, а имя пода у безголового
+  # сервиса публикуется только когда под готов. Без этой строки брокер
+  # не может стать готовым, потому что не разрешает сам себя.
+  publishNotReadyAddresses: true
   selector: { app: kafka }
   ports:
     - name: broker
@@ -44,13 +48,13 @@ spec:
             - name: KAFKA_LISTENERS
               value: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: PLAINTEXT://kafka-0.kafka.quarry.svc.cluster.local:9092
+              value: PLAINTEXT://kafka-0.kafka:9092
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: CONTROLLER
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: 1@kafka-0.kafka.quarry.svc.cluster.local:9093
+              value: 1@kafka-0.kafka:9093
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: PLAINTEXT
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -106,11 +110,11 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.quarry.svc.cluster.local:9092 --list; do
+              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka:9092 --list; do
                 echo "жду брокер"; sleep 5
               done
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.quarry.svc.cluster.local:9092 \
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka:9092 \
                 --create --if-not-exists --topic quarry.telemetry --partitions 3 --replication-factor 1 --config retention.ms=3600000
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.quarry.svc.cluster.local:9092 \
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka:9092 \
                 --create --if-not-exists --topic quarry.events --partitions 3 --replication-factor 1 --config retention.ms=86400000
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka.quarry.svc.cluster.local:9092 --list
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka:9092 --list

@@ -72,7 +72,8 @@ ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 EOF
 
 cat > "$INVENTORY/group_vars/k8s_cluster/quarry.yml" <<EOF
-cluster_name: quarry.local
+# Домен кластера намеренно оставлен стандартным (cluster.local): своё имя
+# ломает любые манифесты с полными именами служб.
 
 # containerd на узлах ходит в наш реестр внутри контура, а не в интернет.
 # Имя постоянное, адрес подставляется отсюда.
@@ -82,6 +83,11 @@ containerd_registries_mirrors:
       - host: http://$SERVER_IP:30500
         capabilities: ["pull", "resolve"]
         skip_verify: true
+
+# kubeadm-кластер, в отличие от k3s, не приносит с собой хранилище:
+# без этого PVC висит без класса и ничего не стартует.
+local_path_provisioner_enabled: true
+local_path_provisioner_is_default_storageclass: "true"
 
 # Стенд скромный по ресурсам, лишнее не ставим.
 dashboard_enabled: false

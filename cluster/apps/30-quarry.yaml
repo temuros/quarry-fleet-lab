@@ -23,11 +23,11 @@ spec:
             - containerPort: 8000
           env:
             - name: KAFKA_BROKER
-              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+              value: kafka-0.kafka:9092
             - name: SLA_LAG_SEC
               value: "5"
             - name: PG_DSN
-              value: postgresql://quarry:quarry@postgres-0.postgres.quarry.svc.cluster.local:5432/quarry
+              value: postgresql://quarry:quarry@postgres-0.postgres:5432/quarry
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 512Mi }
@@ -65,7 +65,7 @@ spec:
             - containerPort: 8080
           env:
             - name: KAFKA_BROKER
-              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+              value: kafka-0.kafka:9092
             - name: DISPATCH
               value: fixed
             - name: FLEET
@@ -111,7 +111,7 @@ spec:
             - containerPort: 8080
           env:
             - name: KAFKA_BROKER
-              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+              value: kafka-0.kafka:9092
             - name: DISPATCH
               value: balanced
             - name: FLEET

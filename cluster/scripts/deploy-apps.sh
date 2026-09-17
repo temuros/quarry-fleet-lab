@@ -12,10 +12,14 @@ say "Kafka и топики"
 kubectl apply -f "$APPS/20-kafka.yaml" >/dev/null
 kubectl -n quarry rollout status sts/kafka --timeout=300s
 
-say "дашборд как ConfigMap"
-# Дашборд один на весь стенд: и docker compose, и кластер берут один файл.
+say "журнал событий"
+kubectl apply -f "$APPS/15-postgres.yaml" >/dev/null
+kubectl -n quarry rollout status sts/postgres --timeout=300s
+
+say "дашборды как ConfigMap"
+# Дашборды одни на весь стенд: и docker compose, и кластер берут те же файлы.
 kubectl create configmap grafana-dashboard-quarry -n quarry \
-  --from-file=quarry.json="$REPO/grafana/dashboards/quarry.json" \
+  --from-file="$REPO/grafana/dashboards/" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
 say "карьер и мониторинг"
