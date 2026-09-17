@@ -1,0 +1,29 @@
+#cloud-config
+hostname: ${hostname}
+manage_etc_hosts: true
+
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_key}
+
+# Отключаем то, что на изолированной площадке всё равно не работает
+# и только тормозит загрузку узла.
+apt:
+  preserve_sources_list: true
+
+write_files:
+  - path: /etc/sysctl.d/99-k8s.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.bridge.bridge-nf-call-iptables = 1
+
+runcmd:
+  - [ swapoff, -a ]
+  - [ sed, -i, "/ swap / s/^/#/", /etc/fstab ]
+  - [ sysctl, --system ]
+
+final_message: "узел ${hostname} готов, загрузка заняла $UPTIME секунд"
