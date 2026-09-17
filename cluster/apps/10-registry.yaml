@@ -35,6 +35,9 @@ spec:
       containers:
         - name: registry
           image: registry:2
+          # Образ кладётся прямо в containerd узла: реестр не может
+          # взять сам себя из реестра.
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
           env:

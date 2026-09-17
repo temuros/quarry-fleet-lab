@@ -21,6 +21,26 @@ provider "libvirt" {
   uri = var.libvirt_uri
 }
 
+# Изолированная сеть: узлы видят друг друга и управляющую машину,
+# наружу не ходят вообще. Это не имитация закрытого контура, а он и есть:
+# после переключения на неё установка обязана пройти на заранее
+# принесённых файлах, иначе она просто не пройдёт.
+resource "libvirt_network" "isolated" {
+  count     = var.isolated ? 1 : 0
+  name      = "${var.prefix}-isolated"
+  mode      = "none"
+  addresses = ["192.168.200.0/24"]
+  autostart = true
+
+  dhcp {
+    enabled = true
+  }
+
+  dns {
+    enabled = true
+  }
+}
+
 # Базовый образ качается один раз и служит основой для дисков узлов.
 resource "libvirt_volume" "base" {
   name   = "${var.prefix}-base.qcow2"
@@ -61,7 +81,7 @@ resource "libvirt_domain" "node" {
   cloudinit = libvirt_cloudinit_disk.init[count.index].id
 
   network_interface {
-    network_name   = var.network
+    network_name   = var.isolated ? libvirt_network.isolated[0].name : var.network
     hostname       = "${var.prefix}-${count.index + 1}"
     wait_for_lease = true
   }

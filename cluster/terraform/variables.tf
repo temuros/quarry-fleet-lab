@@ -57,3 +57,9 @@ variable "ssh_public_key" {
   type        = string
   default     = "/root/.ssh/quarry-lab.pub"
 }
+
+variable "isolated" {
+  description = "Держать узлы в сети без выхода наружу. Так выглядит контур заказчика."
+  type        = bool
+  default     = false
+}

@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: apache/kafka:3.8.1
+          image: registry.quarry.local:5000/mirror/kafka:3.8.1
           ports:
             - containerPort: 9092
           env:
@@ -102,7 +102,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: init
-          image: apache/kafka:3.8.1
+          image: registry.quarry.local:5000/mirror/kafka:3.8.1
           command: ["/bin/sh", "-c"]
           args:
             - |
