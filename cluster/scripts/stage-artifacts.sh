@@ -18,6 +18,7 @@ MIRROR_IMAGES=(
   "apache/kafka:3.8.1"
   "prom/prometheus:v2.55.1"
   "grafana/grafana:11.3.0"
+  "postgres:16-alpine"
 )
 
 say() { printf '\n=== %s\n' "$*"; }

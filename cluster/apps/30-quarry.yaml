@@ -26,6 +26,8 @@ spec:
               value: kafka-0.kafka.quarry.svc.cluster.local:9092
             - name: SLA_LAG_SEC
               value: "5"
+            - name: PG_DSN
+              value: postgresql://quarry:quarry@postgres-0.postgres.quarry.svc.cluster.local:5432/quarry
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 512Mi }

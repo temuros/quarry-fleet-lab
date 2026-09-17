@@ -1,0 +1,72 @@
+# Журнал событий карьера.
+#
+# Prometheus хранит числа во времени, а отчёт по смене состоит из событий
+# с длительностью и причиной. Это разные хранилища, и в контуре заказчика
+# журнал живёт там же, внутри периметра.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres
+  namespace: quarry
+type: Opaque
+stringData:
+  POSTGRES_DB: quarry
+  POSTGRES_USER: quarry
+  # Пароль стенда. На площадке сюда приходит секрет заказчика.
+  POSTGRES_PASSWORD: quarry
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: quarry
+spec:
+  clusterIP: None
+  selector: { app: postgres }
+  ports:
+    - name: pg
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: quarry
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: registry.quarry.local:5000/mirror/postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef: { name: postgres }
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "quarry"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

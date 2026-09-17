@@ -19,6 +19,7 @@ declare -A MIRROR=(
   ["mirror-apache-kafka-3.8.1.tar"]="mirror/kafka:3.8.1"
   ["mirror-prom-prometheus-v2.55.1.tar"]="mirror/prometheus:v2.55.1"
   ["mirror-grafana-grafana-11.3.0.tar"]="mirror/grafana:11.3.0"
+  ["mirror-postgres-16-alpine.tar"]="mirror/postgres:16-alpine"
 )
 
 say() { printf '\n=== %s\n' "$*"; }

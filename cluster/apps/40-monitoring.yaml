@@ -118,6 +118,17 @@ data:
         url: http://prometheus.quarry.svc.cluster.local:9090
         isDefault: true
         uid: quarry-prom
+      - name: Журнал карьера
+        type: postgres
+        uid: quarry-journal
+        url: postgres-0.postgres.quarry.svc.cluster.local:5432
+        database: quarry
+        user: quarry
+        secureJsonData:
+          password: quarry
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1600
 ---
 apiVersion: v1
 kind: ConfigMap
