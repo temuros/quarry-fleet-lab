@@ -18,7 +18,7 @@
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "color": { "mode": "fixed", "fixedColor": "text" },
           "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
@@ -51,7 +51,7 @@
       "type": "stat",
       "id": 2,
       "title": "Выигрыш балансировки",
-      "description": "Насколько больше горной массы вывозит тот же парк при динамическом назначении.",
+      "description": "Насколько больше горной массы вывез тот же парк при динамическом назначении, накопительно за весь прогон. Первые часы карьера цифра скачет, ей нужно несколько рейсов.",
       "datasource": { "type": "prometheus", "uid": "quarry-prom" },
       "gridPos": { "h": 6, "w": 5, "x": 8, "y": 0 },
       "fieldConfig": {
@@ -77,7 +77,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(quarry_tons_per_hour{strategy=\"balanced\"} / on() quarry_tons_per_hour{strategy=\"fixed\"} - 1) * 100",
+          "expr": "(sum(quarry_tons_total{strategy=\"balanced\"}) / sum(quarry_tons_total{strategy=\"fixed\"}) - 1) * 100",
           "legendFormat": "выигрыш"
         }
       ]
