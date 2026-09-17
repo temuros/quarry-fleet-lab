@@ -14,7 +14,7 @@ TF_DIR="${TF_DIR:-$HERE/../terraform}"
 SSH_KEY="${SSH_KEY:-/root/.ssh/quarry-lab}"
 SSH_USER="${SSH_USER:-ubuntu}"
 OFFLINE="${OFFLINE:-0}"
-ARTIFACTS="${ARTIFACTS:-$HERE/artifacts}"
+ARTIFACTS="${ARTIFACTS:-$HERE/../artifacts}"
 KUBECONFIG_OUT="${KUBECONFIG_OUT:-$HERE/kubeconfig}"
 
 ssh_node() {
