@@ -36,8 +36,16 @@ for entry in "${NODES[@]}"; do
   ip="$(echo "$entry" | cut -d' ' -f2)"
   echo "--- $name"
   scp -q -o StrictHostKeyChecking=no -i "$SSH_KEY" "$ARTIFACTS/mirror-registry-2.tar" "$SSH_USER@$ip:/tmp/"
+  # k3s прячет containerd за своей обёрткой, у kubeadm он обычный.
+  # Пространство имён k8s.io обязательно: иначе kubelet образа не увидит.
   ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@$ip" \
-    'sudo k3s ctr images import /tmp/mirror-registry-2.tar >/dev/null && sudo k3s ctr images ls name~=registry | tail -1'
+    'if command -v k3s >/dev/null; then
+       sudo k3s ctr images import /tmp/mirror-registry-2.tar >/dev/null
+       sudo k3s ctr images ls name~=registry | tail -1 | cut -c1-70
+     else
+       sudo ctr -n k8s.io images import /tmp/mirror-registry-2.tar >/dev/null
+       sudo ctr -n k8s.io images ls | grep -m1 registry | cut -c1-70
+     fi'
 done
 
 say "поднимаю реестр"

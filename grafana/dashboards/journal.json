@@ -1,0 +1,262 @@
+{
+  "uid": "quarry-journal",
+  "title": "Журнал и отчёт по смене",
+  "tags": ["quarry", "отчёт"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-12h", "to": "now" },
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "fleet",
+        "label": "Парк",
+        "type": "custom",
+        "query": "balanced,fixed",
+        "current": { "text": "balanced", "value": "balanced" },
+        "options": [
+          { "text": "balanced", "value": "balanced", "selected": true },
+          { "text": "fixed", "value": "fixed", "selected": false }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "Вывезено за выбранный период",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#4C8DFF" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(sum(tons), 0) AS \"тонн\" FROM events WHERE kind = 'рейс' AND strategy = '$fleet' AND $__timeFilter(ts)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Рейсов",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 5, "w": 5, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "none", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "text" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS \"рейсов\" FROM events WHERE kind = 'рейс' AND strategy = '$fleet' AND $__timeFilter(ts)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Средний рейс",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 5, "w": 5, "x": 11, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "suffix: мин", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "text" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(avg(minutes), 0) AS \"минут\" FROM events WHERE kind = 'рейс' AND strategy = '$fleet' AND $__timeFilter(ts)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 4,
+      "title": "Потеряно времени на простоях",
+      "description": "Сумма длительностей всех событий, кроме рейсов: ремонты машин, остановки забоев, обрывы связи.",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: мин",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#3D8F4B", "value": null },
+              { "color": "#E0B400", "value": 120 },
+              { "color": "#C4162A", "value": 300 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(sum(minutes), 0) AS \"минут\" FROM events WHERE kind <> 'рейс' AND minutes IS NOT NULL AND strategy = '$fleet' AND $__timeFilter(ts)"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 5,
+      "title": "Простои по причинам",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Всего минут" },
+            "properties": [
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.cellOptions", "value": { "type": "gauge", "mode": "gradient" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Случаев" },
+            "properties": [{ "id": "decimals", "value": 0 }]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "md" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT kind AS \"Что случилось\", coalesce(reason, 'без причины') AS \"Причина\", count(*) AS \"Случаев\", round(sum(minutes)::numeric, 0) AS \"Всего минут\" FROM events WHERE kind <> 'рейс' AND minutes IS NOT NULL AND strategy = '$fleet' AND $__timeFilter(ts) GROUP BY 1, 2 ORDER BY 4 DESC"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 6,
+      "title": "Кто сколько вывез",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Тонн" },
+            "properties": [
+              { "id": "decimals", "value": 0 },
+              { "id": "custom.cellOptions", "value": { "type": "gauge", "mode": "gradient" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Рейсов" },
+            "properties": [{ "id": "decimals", "value": 0 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Средний рейс, мин" },
+            "properties": [{ "id": "decimals", "value": 1 }]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "md" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT who AS \"Машина\", count(*) AS \"Рейсов\", round(sum(tons)::numeric, 0) AS \"Тонн\", round(avg(minutes)::numeric, 1) AS \"Средний рейс, мин\" FROM events WHERE kind = 'рейс' AND strategy = '$fleet' AND $__timeFilter(ts) GROUP BY 1 ORDER BY 3 DESC"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 7,
+      "title": "Журнал событий",
+      "description": "Всё, что случилось, кроме рейсов. Таблицу можно выгрузить: меню панели, Inspect, Data, Download CSV.",
+      "datasource": { "type": "postgres", "uid": "quarry-journal" },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Когда" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsLocalNoDateIfToday" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Длилось, мин" },
+            "properties": [
+              { "id": "decimals", "value": 1 },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "text", "value": null },
+                    { "color": "#E0B400", "value": 10 },
+                    { "color": "#C4162A", "value": 40 }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Смена" },
+            "properties": [{ "id": "decimals", "value": 0 }]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS \"Когда\", shift_no AS \"Смена\", kind AS \"Что случилось\", who AS \"Кто\", minutes AS \"Длилось, мин\", reason AS \"Причина\" FROM events WHERE kind <> 'рейс' AND strategy = '$fleet' AND $__timeFilter(ts) ORDER BY ts DESC LIMIT 500"
+        }
+      ]
+    }
+  ]
+}

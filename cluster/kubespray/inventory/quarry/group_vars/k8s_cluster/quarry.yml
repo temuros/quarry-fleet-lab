@@ -1,0 +1,16 @@
+cluster_name: quarry.local
+
+# containerd на узлах ходит в наш реестр внутри контура, а не в интернет.
+# Имя постоянное, адрес подставляется отсюда.
+containerd_registries_mirrors:
+  - prefix: registry.quarry.local:5000
+    mirrors:
+      - host: http://192.168.122.67:30500
+        capabilities: ["pull", "resolve"]
+        skip_verify: true
+
+# Стенд скромный по ресурсам, лишнее не ставим.
+dashboard_enabled: false
+metrics_server_enabled: false
+helm_enabled: false
+kube_network_plugin: calico

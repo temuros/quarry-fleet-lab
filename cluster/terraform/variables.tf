@@ -23,15 +23,15 @@ variable "vcpu" {
 }
 
 variable "memory_mb" {
-  description = "Памяти на узел, МБ"
+  description = "Памяти на узел, МБ. Kubespray ставит обычный kubeadm-кластер, ему нужно больше, чем k3s."
   type        = number
-  default     = 3072
+  default     = 4096
 }
 
 variable "disk_gb" {
   description = "Диск узла, ГБ"
   type        = number
-  default     = 20
+  default     = 25
 }
 
 variable "pool" {

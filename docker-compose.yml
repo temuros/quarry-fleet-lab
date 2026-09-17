@@ -38,12 +38,29 @@ services:
       - "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic quarry.telemetry --partitions 3 --replication-factor 1 --config retention.ms=3600000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic quarry.events --partitions 3 --replication-factor 1 --config retention.ms=86400000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list"
     restart: "no"
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: quarry-postgres
+    environment:
+      POSTGRES_DB: quarry
+      POSTGRES_USER: quarry
+      POSTGRES_PASSWORD: quarry
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quarry"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   collector:
     build: ./collector
     container_name: quarry-collector
     environment:
       KAFKA_BROKER: kafka:9092
       SLA_LAG_SEC: "5"
+      PG_DSN: "postgresql://quarry:quarry@postgres:5432/quarry"
     ports:
       - "8000:8000"
     depends_on:
@@ -123,5 +140,6 @@ services:
 
 volumes:
   kafka-data:
+  pg-data:
   prom-data:
   grafana-data:

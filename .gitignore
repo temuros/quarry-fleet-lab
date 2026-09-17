@@ -9,3 +9,5 @@ cluster/k3s/artifacts/
 cluster/terraform/.terraform/
 cluster/terraform/terraform.tfstate*
 cluster/terraform/*.tfvars
+cluster/kubespray/inventory/quarry/hosts.yaml
+cluster/kubespray/kubeconfig

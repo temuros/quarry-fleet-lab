@@ -90,6 +90,14 @@ resource "libvirt_domain" "node" {
 
   cloudinit = libvirt_cloudinit_disk.init[count.index].id
 
+  # Прокидываем процессор хоста как есть. С машинным по умолчанию (qemu64)
+  # нет инструкций уровня x86-64-v2, и calicoctl отказывается запускаться:
+  # "This program can only be run on AMD64 processors with v2 support".
+  # На голом железе этой проблемы нет, у виртуалок она встречается постоянно.
+  cpu {
+    mode = "host-passthrough"
+  }
+
   network_interface {
     network_name   = var.isolated ? libvirt_network.isolated[0].name : var.network
     hostname       = "${var.prefix}-${count.index + 1}"

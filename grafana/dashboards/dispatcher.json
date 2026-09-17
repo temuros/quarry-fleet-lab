@@ -1,0 +1,870 @@
+{
+  "uid": "quarry-shift",
+  "title": "Смена диспетчера",
+  "tags": [
+    "quarry",
+    "смена"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "editable": true,
+  "panels": [
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "Вывезено за смену",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4C8DFF"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_tons_total{strategy=\"balanced\"}",
+          "legendFormat": "тонн"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Сменный наряд",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_plan_tons",
+          "legendFormat": "тонн"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Отставание от наряда",
+      "description": "Сколько тонн не хватает к этому часу смены. Считается от момента, с которого приёмник видит смену, иначе перезапуск выглядел бы провалом.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#C4162A",
+                "value": null
+              },
+              {
+                "color": "#E0B400",
+                "value": -300
+              },
+              {
+                "color": "#3D8F4B",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_gap_tons{strategy=\"balanced\"}",
+          "legendFormat": "тонн"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "id": 4,
+      "title": "Наряд выполнен на",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#C4162A",
+                "value": null
+              },
+              {
+                "color": "#E0B400",
+                "value": 0.4
+              },
+              {
+                "color": "#3D8F4B",
+                "value": 0.8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_done_ratio{strategy=\"balanced\"}",
+          "legendFormat": "наряд"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 5,
+      "title": "Смену наблюдаем",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: ч",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_hours{strategy=\"balanced\"}",
+          "legendFormat": "часов"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "id": 6,
+      "title": "Что вывезли за смену",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4C8DFF"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "вскрыша"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_shift_tons{strategy=\"balanced\"}",
+          "legendFormat": "{{material}}"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 7,
+      "title": "Забои",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 16,
+        "x": 8,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Что происходит"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "работает",
+                        "color": "#3D8F4B",
+                        "index": 0
+                      },
+                      "2": {
+                        "text": "стоит без машин",
+                        "color": "#E0B400",
+                        "index": 1
+                      },
+                      "3": {
+                        "text": "не работает, ремонт",
+                        "color": "#C4162A",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Простой"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#3D8F4B",
+                      "value": null
+                    },
+                    {
+                      "color": "#E0B400",
+                      "value": 0.15
+                    },
+                    {
+                      "color": "#C4162A",
+                      "value": 0.3
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Очередь"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_face_state_code{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_queue_len{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "quarry_excavator_idle_ratio{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "excavator",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "strategy 1": true,
+              "strategy 2": true,
+              "strategy 3": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true
+            },
+            "renameByName": {
+              "excavator": "Забой",
+              "Value #A": "Что происходит",
+              "Value #B": "Очередь",
+              "Value #C": "Простой"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 8,
+      "title": "Машины в смене",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 16,
+        "x": 0,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Что делает"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "едет порожняком",
+                        "color": "#8E8E8E",
+                        "index": 0
+                      },
+                      "2": {
+                        "text": "ждёт погрузки",
+                        "color": "#E0B400",
+                        "index": 1
+                      },
+                      "3": {
+                        "text": "грузится",
+                        "color": "#4C8DFF",
+                        "index": 2
+                      },
+                      "4": {
+                        "text": "едет гружёным",
+                        "color": "#3D8F4B",
+                        "index": 3
+                      },
+                      "5": {
+                        "text": "разгружается",
+                        "color": "#4C8DFF",
+                        "index": 4
+                      },
+                      "6": {
+                        "text": "в ремонте",
+                        "color": "#C4162A",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Забой"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "Забой 1, уголь",
+                        "index": 0
+                      },
+                      "2": {
+                        "text": "Забой 2, вскрыша",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Тонн"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Рейсов"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ждал погрузки, мин"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "В ремонте, мин"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "#C4162A",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "sortBy": [
+          {
+            "displayName": "Тонн",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_truck_state_code{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_truck_face_code{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "quarry_truck_trips{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "quarry_truck_tons{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "E",
+          "expr": "quarry_truck_wait_minutes{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "F",
+          "expr": "quarry_truck_down_minutes{strategy=\"balanced\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "truck",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true,
+              "strategy 1": true,
+              "strategy 2": true,
+              "strategy 3": true,
+              "strategy 4": true,
+              "strategy 5": true,
+              "strategy 6": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "__name__ 5": true,
+              "__name__ 6": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "job 5": true,
+              "job 6": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "instance 5": true,
+              "instance 6": true
+            },
+            "renameByName": {
+              "truck": "Машина",
+              "Value #A": "Что делает",
+              "Value #B": "Забой",
+              "Value #C": "Рейсов",
+              "Value #D": "Тонн",
+              "Value #E": "Ждал погрузки, мин",
+              "Value #F": "В ремонте, мин"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 9,
+      "title": "Что случилось",
+      "description": "Последнее событие каждого вида. Время местное.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Когда"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocalNoDateIfToday"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "sortBy": [
+          {
+            "displayName": "Когда",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_last_event_time{strategy=\"balanced\"} * 1000",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "strategy": true,
+              "__name__": true,
+              "job": true,
+              "instance": true
+            },
+            "renameByName": {
+              "kind": "Что",
+              "who": "Кто",
+              "Value": "Когда"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

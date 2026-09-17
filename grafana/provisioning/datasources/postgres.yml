@@ -1,0 +1,14 @@
+apiVersion: 1
+datasources:
+  - name: Журнал карьера
+    type: postgres
+    uid: quarry-journal
+    url: postgres:5432
+    database: quarry
+    user: quarry
+    secureJsonData:
+      password: quarry
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false

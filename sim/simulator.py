@@ -144,6 +144,7 @@ class Excavator:
     busy_sec: float = 0.0
     down_until: float = -1.0
     down_sec: float = 0.0
+    idle_start: float = 0.0
     tons: float = 0.0
 
     def available(self, now):
@@ -367,6 +368,7 @@ class Quarry:
         elif t.state == "loading":
             ex = self.excavators[t.face]
             ex.serving = None
+            ex.idle_start = self.now
             ex.tons += t.payload_t
             t.state = "to_dump"
             self._go(t, ex.point, DEST[ex.dest_id], loaded=True)
@@ -420,6 +422,12 @@ class Quarry:
         t.frm = t.to = ex.point
         ex.serving = t.id
         ex.serving_until = t.state_end
+
+        # Забой стоял без машин: это отдельная причина простоя в отчёте,
+        # и именно её диспетчер закрывает перекидыванием техники.
+        starved_min = (self.now - ex.idle_start) / 60
+        if ex.idle_start > 0 and starved_min >= 1:
+            self._emit_event("face_starved", excavator=ex.id, minutes=round(starved_min, 1))
 
         t.prev_load_start, t.load_start = t.load_start, self.now
         if t.prev_load_start is not None:
