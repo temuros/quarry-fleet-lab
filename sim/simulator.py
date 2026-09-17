@@ -33,7 +33,7 @@ SPEED = float(os.getenv("SIM_SPEED", "60"))        # во сколько раз 
 TICK_SEC = float(os.getenv("SIM_TICK_SEC", "1"))   # шаг модели в секундах карьера
 TELEMETRY_SEC = float(os.getenv("TELEMETRY_SEC", "5"))  # период отправки координат
 
-BREAKDOWN_PER_HOUR = float(os.getenv("BREAKDOWN_PER_HOUR", "0.012"))
+BREAKDOWN_PER_HOUR = float(os.getenv("BREAKDOWN_PER_HOUR", "0.05"))
 REPAIR_MIN = (float(os.getenv("REPAIR_MIN_LO", "20")), float(os.getenv("REPAIR_MIN_HI", "45")))
 
 OUTAGE_EVERY_MIN = float(os.getenv("OUTAGE_EVERY_MIN", "0"))   # период обрыва канала, минуты карьера
@@ -112,7 +112,7 @@ FACES = {
 }
 DEST = {
     "CR-01": Point("Дробилка", 900, 150),
-    "DP-01": Point("Отвал", 620, -700),
+    "DP-01": Point("Отвал", 1100, -900),
 }
 
 
@@ -132,6 +132,7 @@ class Excavator:
     serving: str = None
     serving_until: float = 0.0
     queue: list = field(default_factory=list)
+    incoming: int = 0
     idle_sec: float = 0.0
     busy_sec: float = 0.0
     tons: float = 0.0
@@ -140,10 +141,17 @@ class Excavator:
         buckets = max(1, round(payload_t / self.bucket_t))
         return self.spot_sec + buckets * self.bucket_sec * rnd.uniform(0.9, 1.15)
 
-    def wait_forecast(self, now):
-        """Сколько ждать, если приехать прямо сейчас."""
+    def service_estimate(self, payload_t=90.0):
+        return self.spot_sec + max(1, round(payload_t / self.bucket_t)) * self.bucket_sec
+
+    def wait_forecast(self, now, payload_t=90.0):
+        """Сколько ждать, если выехать сюда прямо сейчас.
+
+        Считаются и те, кто уже в очереди, и те, кто ещё в пути: без этого
+        освободившиеся самосвалы толпой едут в один забой.
+        """
         ahead = max(0.0, self.serving_until - now)
-        return ahead + len(self.queue) * (self.spot_sec + 4.5 * self.bucket_sec)
+        return ahead + (len(self.queue) + self.incoming) * self.service_estimate(payload_t)
 
 
 @dataclass
@@ -182,8 +190,13 @@ class Quarry:
         self.up = uplink
         self.now = 0.0
         self.excavators = {
-            "EX-01": Excavator("EX-01", FACES["EX-01"], "уголь", "CR-01"),
-            "EX-02": Excavator("EX-02", FACES["EX-02"], "вскрыша", "DP-01"),
+            # забои намеренно разные: на угле стоит машина крупнее и ближе к
+            # разгрузке, на вскрыше меньше и дальше. Именно из-за такой
+            # несимметрии постоянное закрепление самосвалов и проигрывает.
+            "EX-01": Excavator("EX-01", FACES["EX-01"], "уголь", "CR-01",
+                               bucket_t=22.0, bucket_sec=32.0),
+            "EX-02": Excavator("EX-02", FACES["EX-02"], "вскрыша", "DP-01",
+                               bucket_t=15.0, bucket_sec=46.0),
         }
         self.trucks = []
         faces = list(self.excavators)
@@ -193,6 +206,7 @@ class Quarry:
                       payload_t=TRUCK_PAYLOAD_T * rnd.uniform(0.94, 1.0),
                       face=face)
             start = DEST[self.excavators[face].dest_id]
+            self.excavators[face].incoming += 1
             self._go(t, start, self.excavators[face].point, loaded=False)
             t.state = "to_face"
             self.trucks.append(t)
@@ -219,7 +233,7 @@ class Quarry:
         best, best_cost = t.face, math.inf
         for eid, ex in self.excavators.items():
             travel = dist_km(frm, ex.point) / 31.0 * 3600.0
-            cost = travel + ex.wait_forecast(self.now)
+            cost = travel + ex.wait_forecast(self.now, t.payload_t)
             if cost < best_cost:
                 best, best_cost = eid, cost
         return best
@@ -262,6 +276,7 @@ class Quarry:
             ex = self.excavators[t.face]
             t.state = "queue"
             t.state_start = self.now
+            ex.incoming = max(0, ex.incoming - 1)
             ex.queue.append(t.id)
         elif t.state == "loading":
             ex = self.excavators[t.face]
@@ -279,15 +294,20 @@ class Quarry:
                              material=ex_old.material, tons=round(t.payload_t, 1))
             here = DEST[ex_old.dest_id]
             t.face = self._pick_face(t, here)
+            self.excavators[t.face].incoming += 1
             t.state = "to_face"
             self._go(t, here, self.excavators[t.face].point, loaded=False)
         elif t.state == "down":
             t.state = "to_face"
+            self.excavators[t.face].incoming += 1
             x, y = t.position(self.now)
             self._go(t, Point("ремонт", x, y), self.excavators[t.face].point, loaded=False)
             self._emit_event("repair_done", truck=t.id)
 
     def _break_down(self, t):
+        if t.state == "to_face":
+            ex = self.excavators[t.face]
+            ex.incoming = max(0, ex.incoming - 1)
         if t.state == "queue":
             ex = self.excavators[t.face]
             if t.id in ex.queue:
