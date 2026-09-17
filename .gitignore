@@ -4,6 +4,7 @@ __pycache__/
 
 # кластер: состояние, ключи и доступы наружу не уезжают
 cluster/**/kubeconfig
+cluster/artifacts/
 cluster/k3s/artifacts/
 cluster/terraform/.terraform/
 cluster/terraform/terraform.tfstate*

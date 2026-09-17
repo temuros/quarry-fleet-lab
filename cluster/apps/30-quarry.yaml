@@ -1,0 +1,138 @@
+# Полезная нагрузка: приёмник телеметрии и два парка самосвалов.
+# Образы тянутся из реестра ВНУТРИ контура, наружу никто не ходит.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collector
+  namespace: quarry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: collector }
+  template:
+    metadata:
+      labels: { app: collector }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: collector
+          image: registry.quarry.local:5000/quarry/collector:local
+          ports:
+            - containerPort: 8000
+          env:
+            - name: KAFKA_BROKER
+              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+            - name: SLA_LAG_SEC
+              value: "5"
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector
+  namespace: quarry
+  labels: { app: collector }
+spec:
+  selector: { app: collector }
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sim-fixed
+  namespace: quarry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sim-fixed }
+  template:
+    metadata:
+      labels: { app: sim-fixed, part: sim }
+    spec:
+      containers:
+        - name: sim
+          image: registry.quarry.local:5000/quarry/sim:local
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KAFKA_BROKER
+              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+            - name: DISPATCH
+              value: fixed
+            - name: FLEET
+              value: fixed
+            - name: TRUCKS
+              value: "8"
+            - name: SIM_SPEED
+              value: "60"
+            - name: OUTAGE_EVERY_MIN
+              value: "0"
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sim-fixed
+  namespace: quarry
+spec:
+  selector: { app: sim-fixed }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sim-balanced
+  namespace: quarry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sim-balanced }
+  template:
+    metadata:
+      labels: { app: sim-balanced, part: sim }
+    spec:
+      containers:
+        - name: sim
+          image: registry.quarry.local:5000/quarry/sim:local
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KAFKA_BROKER
+              value: kafka-0.kafka.quarry.svc.cluster.local:9092
+            - name: DISPATCH
+              value: balanced
+            - name: FLEET
+              value: balanced
+            - name: TRUCKS
+              value: "8"
+            - name: SIM_SPEED
+              value: "60"
+            - name: OUTAGE_EVERY_MIN
+              value: "90"
+            - name: OUTAGE_DUR_MIN
+              value: "8"
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sim-balanced
+  namespace: quarry
+spec:
+  selector: { app: sim-balanced }
+  ports:
+    - port: 8080
+      targetPort: 8080
