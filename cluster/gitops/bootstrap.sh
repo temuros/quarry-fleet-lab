@@ -110,6 +110,15 @@ zalit_manifesty() {
     --from-file="$REPO/prometheus/alerts.yml" \
     --dry-run=client -o yaml > "$rabochaya/apps/46-rules.yaml"
 
+  # Prometheus не следит за файлом правил: обновлённый ConfigMap доезжает до
+  # пода, а в памяти остаются прежние правила. Снаружи это выглядит хуже
+  # обычной поломки: ArgoCD показывает Synced, файл на месте, поведение
+  # старое. Поэтому сумма правил едет в шаблон пода: меняются правила -
+  # меняется шаблон, и ArgoCD пересоздаёт под сам, без ручного reload.
+  local summa
+  summa="$(sha256sum "$REPO/prometheus/alerts.yml" | cut -c1-12)"
+  sed -i "s/podstavlyaetsya-pri-vykate/$summa/" "$rabochaya/apps/40-monitoring.yaml"
+
   cat > "$rabochaya/README.md" <<'EOF'
 # Манифесты карьера
 

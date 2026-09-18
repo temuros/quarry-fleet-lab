@@ -220,7 +220,10 @@ status() {
   for ip in "$IP1" "$IP2"; do
     if na "$ip" "ip -4 -o addr show | grep -q '$VIP'" 2>/dev/null; then
       echo "$ip"
-      na "$ip" "df -h $DANNYE | tail -1; exportfs -v | head -2" || true
+      # ⚠️ exportfs без sudo не читает /var/lib/nfs и заканчивает вывод
+      # строкой «errno 13 (Permission denied)»: хранилище при этом исправно,
+      # но состояние выглядит как поломка и уводит разбор в сторону.
+      na "$ip" "df -h $DANNYE | tail -1; sudo exportfs -v | head -2" || true
     fi
   done
 }

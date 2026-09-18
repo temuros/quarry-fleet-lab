@@ -88,11 +88,27 @@ metadata:
   namespace: quarry
 spec:
   replicas: 1
+  # ⚠️ Том с историей показателей берётся ровно одним процессом: Prometheus
+  # держит на каталоге блокировку. Обычная выкатка поднимает новый под, пока
+  # старый ещё жив, и новый падает с «lock DB directory: resource temporarily
+  # unavailable». Само чинится следующей попыткой, но каждая правка правил
+  # даёт минуту красного пода и ложный испуг. Поэтому сначала гасим старый.
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: prometheus }
   template:
     metadata:
       labels: { app: prometheus }
+      annotations:
+        # 🔴 Контрольная сумма правил, которую подставляет cluster/gitops/bootstrap.sh.
+        # Без неё правка тревог доезжала до кластера вхолостую: ConfigMap
+        # обновлялся, файл в поде менялся, ArgoCD честно показывал Synced, а
+        # Prometheus продолжал работать по старым правилам, потому что
+        # перечитать их никто не просил. Самый неприятный вид отказа: система
+        # утверждает, что изменение применено, а поведение прежнее.
+        # Теперь правка правил меняет шаблон пода, и под пересоздаётся сам.
+        quarry.local/rules-sha: "podstavlyaetsya-pri-vykate"
     spec:
       serviceAccountName: prometheus
       containers:
