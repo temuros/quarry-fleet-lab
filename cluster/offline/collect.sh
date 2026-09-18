@@ -59,7 +59,14 @@ NUZHNY_IMAGES='kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|
 # 🔴 Проверять их наличие на узле, где Kubespray уже отработал, бесполезно:
 # половину этого списка он туда и поставил. Набор считается относительно
 # ЧИСТОГО образа, его состав снят в base-image-packages.txt.
-APT_PKGS="${APT_PKGS:-apparmor apt-transport-https bash-completion conntrack curl e2fsprogs ebtables iproute2 iptables iputils-ping ipvsadm ipset libseccomp2 openssl python3-apt rsync socat software-properties-common tar unzip xfsprogs}"
+#
+# Сверх набора Kubespray в контур идут ещё два пакета, и оба про время:
+# chrony как служба времени и linux-modules-extra с модулем ptp_kvm, который
+# берёт часы прямо у гипервизора. Наружу NTP не ходит по условию задачи, а без
+# источника времени часы узлов расходятся: на стенде разошлись на 21 минуту.
+# Модуль привязан к версии ядра, поэтому имя пакета собирается из NODE_KERNEL.
+NODE_KERNEL="${NODE_KERNEL:-6.8.0-139-generic}"
+APT_PKGS="${APT_PKGS:-apparmor apt-transport-https bash-completion conntrack curl e2fsprogs ebtables iproute2 iptables iputils-ping ipvsadm ipset libseccomp2 openssl python3-apt rsync socat software-properties-common tar unzip xfsprogs chrony linux-modules-extra-$NODE_KERNEL}"
 # GitOps внутри контура: ArgoCD тянет манифесты из git-сервера, который тоже
 # стоит внутри. Gitea выбрана вместо GitLab намеренно: у неё один образ и файл
 # базы, а в закрытый контур каждую площадку тащить GitLab это отдельная работа.
