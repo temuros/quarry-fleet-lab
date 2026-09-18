@@ -14,3 +14,12 @@ mirror-grafana-grafana-11.3.0.tar   mirror/grafana:11.3.0
 mirror-gitea-1.27.3.tar             mirror/gitea:1.27.3
 mirror-argocd-v3.5.3.tar            mirror/argocd:v3.5.3
 mirror-redis-8.2.3-alpine.tar       mirror/redis:8.2.3-alpine
+
+# Сетевое хранилище: драйвер CSI для NFS. Без него том можно примонтировать
+# только руками, а кластер должен выдавать их сам.
+mirror-csi-nfsplugin-v4.11.0.tar               sig-storage/nfsplugin:v4.11.0
+mirror-csi-csi-provisioner-v5.2.0.tar          sig-storage/csi-provisioner:v5.2.0
+mirror-csi-csi-node-driver-registrar-v2.13.0.tar sig-storage/csi-node-driver-registrar:v2.13.0
+mirror-csi-csi-resizer-v1.13.1.tar             sig-storage/csi-resizer:v1.13.1
+mirror-csi-csi-snapshotter-v8.2.0.tar          sig-storage/csi-snapshotter:v8.2.0
+mirror-csi-livenessprobe-v2.15.0.tar           sig-storage/livenessprobe:v2.15.0
