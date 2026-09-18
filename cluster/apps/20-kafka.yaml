@@ -69,6 +69,14 @@ spec:
               value: "true"
             - name: KAFKA_LOG_RETENTION_HOURS
               value: "24"
+            # 🔴 Без этого образ apache/kafka кладёт журналы разделов в
+            # /tmp/kafka-logs, а смонтированный том стоит пустой. Пока под не
+            # пересоздавался, всё выглядит исправно: данные на месте, том
+            # подключён, PVC Bound. Первый же перезапуск стирает шину целиком.
+            # Вскрылось на учении с обрывом питания: после подъёма смещения
+            # топиков оказались нулевыми, а /var/lib/kafka/data занимал 4 КБ.
+            - name: KAFKA_LOG_DIRS
+              value: /var/lib/kafka/data
             - name: CLUSTER_ID
               value: wqiL2YOzQPS9r4Hd0Czk6A
           readinessProbe:
