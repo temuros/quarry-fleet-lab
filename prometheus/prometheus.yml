@@ -3,6 +3,13 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # Счётчики приёмного шлюза: сколько пакетов пришло с бортов, сколько
+  # записей, сколько битых сумм. Без них вопрос «данные не идут» не
+  # разобрать: непонятно, молчит техника или не работает приём.
+  - job_name: egts-gateway
+    static_configs:
+      - targets: ["egts-gateway:8090"]
+
   - job_name: quarry-collector
     static_configs:
       - targets: ["collector:8000"]

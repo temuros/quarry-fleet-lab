@@ -40,6 +40,13 @@ data:
       evaluation_interval: 15s
 
     scrape_configs:
+      # Счётчики приёмного шлюза: сколько пакетов пришло с бортов, сколько
+      # записей, сколько битых сумм. Без них вопрос «данные не идут» не
+      # разобрать: непонятно, молчит техника или не работает приём.
+      - job_name: egts-gateway
+        static_configs:
+          - targets: ["egts-gateway:8090"]
+
       - job_name: quarry-collector
         static_configs:
           - targets: ["collector:8000"]
@@ -52,6 +59,17 @@ data:
         relabel_configs:
           - action: labelmap
             regex: __meta_kubernetes_node_label_(.+)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: quarry
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -88,7 +106,11 @@ spec:
         - name: config
           configMap: { name: prometheus-config }
         - name: data
-          emptyDir: {}
+          # ⚠️ Раньше здесь был emptyDir, и любой перезапуск пода стирал всю
+          # историю показателей. На стенде это выглядит особенно обидно:
+          # графики за сутки исчезают из-за правки одной строки конфигурации.
+          persistentVolumeClaim:
+            claimName: prometheus-data
 ---
 apiVersion: v1
 kind: Service

@@ -1,12 +1,18 @@
 {
   "uid": "quarry-main",
   "title": "Карьер: горнотранспортный комплекс",
-  "tags": ["quarry", "telemetry"],
+  "tags": [
+    "quarry",
+    "telemetry"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "editable": true,
   "panels": [
     {
@@ -14,28 +20,75 @@
       "id": 1,
       "title": "Тонн в час",
       "description": "Скользящее окно два часа карьера. Синий: динамическое назначение самосвалов. Оранжевый: самосвалы закреплены за забоем.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
           "decimals": 0,
-          "color": { "mode": "fixed", "fixedColor": "text" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "балансировка" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "балансировка"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "закреплены за забоем" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "закреплены за забоем"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "horizontal",
         "textMode": "value_and_name",
         "colorMode": "value",
@@ -43,8 +96,16 @@
         "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_tons_per_hour{strategy=\"balanced\"}", "legendFormat": "балансировка" },
-        { "refId": "B", "expr": "quarry_tons_per_hour{strategy=\"fixed\"}", "legendFormat": "закреплены за забоем" }
+        {
+          "refId": "A",
+          "expr": "quarry_tons_per_hour{strategy=\"balanced\"}",
+          "legendFormat": "балансировка"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_tons_per_hour{strategy=\"fixed\"}",
+          "legendFormat": "закреплены за забоем"
+        }
       ]
     },
     {
@@ -52,8 +113,16 @@
       "id": 2,
       "title": "Выигрыш балансировки",
       "description": "Насколько больше горной массы вывез тот же парк при динамическом назначении, накопительно за весь прогон. Первые часы карьера цифра скачет, ей нужно несколько рейсов.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 6, "w": 5, "x": 8, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 8,
+        "y": 0
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -61,15 +130,27 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#8E8E8E", "value": null },
-              { "color": "#4C8DFF", "value": 5 }
+              {
+                "color": "#8E8E8E",
+                "value": null
+              },
+              {
+                "color": "#4C8DFF",
+                "value": 5
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "value",
         "colorMode": "value",
         "graphMode": "area"
@@ -87,8 +168,16 @@
       "id": 3,
       "title": "Доступность потока данных",
       "description": "Требование площадки: не ниже 95 процентов. Считается по секундам, в которые телеметрия дошла с задержкой меньше 5 секунд.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 6, "w": 6, "x": 13, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 13,
+        "y": 0
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -98,21 +187,40 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#C4162A", "value": null },
-              { "color": "#E0B400", "value": 0.9 },
-              { "color": "#3D8F4B", "value": 0.95 }
+              {
+                "color": "#C4162A",
+                "value": null
+              },
+              {
+                "color": "#E0B400",
+                "value": 0.9
+              },
+              {
+                "color": "#3D8F4B",
+                "value": 0.95
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "showThresholdMarkers": true,
         "showThresholdLabels": false
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_stream_uptime_ratio", "legendFormat": "{{fleet}}" }
+        {
+          "refId": "A",
+          "expr": "quarry_stream_uptime_ratio",
+          "legendFormat": "{{fleet}}"
+        }
       ]
     },
     {
@@ -120,8 +228,16 @@
       "id": 4,
       "title": "Задержка приёма",
       "description": "Требование площадки: меньше 5 секунд. Во время обрыва канала растёт, после восстановления спадает по мере догона буфера.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 6, "w": 5, "x": 19, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -129,31 +245,58 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#3D8F4B", "value": null },
-              { "color": "#E0B400", "value": 3 },
-              { "color": "#C4162A", "value": 5 }
+              {
+                "color": "#3D8F4B",
+                "value": null
+              },
+              {
+                "color": "#E0B400",
+                "value": 3
+              },
+              {
+                "color": "#C4162A",
+                "value": 5
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "textMode": "value_and_name",
         "colorMode": "value",
         "graphMode": "area",
         "orientation": "horizontal"
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_ingest_lag_seconds", "legendFormat": "{{fleet}}" }
+        {
+          "refId": "A",
+          "expr": "quarry_ingest_lag_seconds",
+          "legendFormat": "{{fleet}}"
+        }
       ]
     },
     {
       "type": "timeseries",
       "id": 5,
       "title": "Производительность, тонн в час",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -168,86 +311,226 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "балансировка" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "балансировка"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "закреплены за забоем" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "закреплены за забоем"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_tons_per_hour{strategy=\"balanced\"}", "legendFormat": "балансировка" },
-        { "refId": "B", "expr": "quarry_tons_per_hour{strategy=\"fixed\"}", "legendFormat": "закреплены за забоем" }
+        {
+          "refId": "A",
+          "expr": "quarry_tons_per_hour{strategy=\"balanced\"}",
+          "legendFormat": "балансировка"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_tons_per_hour{strategy=\"fixed\"}",
+          "legendFormat": "закреплены за забоем"
+        }
       ]
     },
     {
       "type": "timeseries",
       "id": 6,
       "title": "Время рейса, минуты",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "m",
           "decimals": 1,
-          "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "spanNulls": true }
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "балансировка" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "балансировка"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "закреплены за забоем" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "закреплены за забоем"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_cycle_seconds_avg{strategy=\"balanced\"} / 60", "legendFormat": "балансировка" },
-        { "refId": "B", "expr": "quarry_cycle_seconds_avg{strategy=\"fixed\"} / 60", "legendFormat": "закреплены за забоем" }
+        {
+          "refId": "A",
+          "expr": "quarry_cycle_seconds_avg{strategy=\"balanced\"} / 60",
+          "legendFormat": "балансировка"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_cycle_seconds_avg{strategy=\"fixed\"} / 60",
+          "legendFormat": "закреплены за забоем"
+        }
       ]
     },
     {
       "type": "timeseries",
       "id": 7,
       "title": "Ожидание под погрузку, минуты",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "m",
           "decimals": 1,
-          "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "spanNulls": true }
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "балансировка" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "балансировка"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byName", "options": "закреплены за забоем" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byName",
+              "options": "закреплены за забоем"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_wait_seconds_avg{strategy=\"balanced\"} / 60", "legendFormat": "балансировка" },
-        { "refId": "B", "expr": "quarry_wait_seconds_avg{strategy=\"fixed\"} / 60", "legendFormat": "закреплены за забоем" }
+        {
+          "refId": "A",
+          "expr": "quarry_wait_seconds_avg{strategy=\"balanced\"} / 60",
+          "legendFormat": "балансировка"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_wait_seconds_avg{strategy=\"fixed\"} / 60",
+          "legendFormat": "закреплены за забоем"
+        }
       ]
     },
     {
@@ -255,95 +538,223 @@
       "id": 8,
       "title": "Простой экскаваторов",
       "description": "Доля времени, когда у экскаватора нет самосвала под погрузкой.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
           "decimals": 0,
           "min": 0,
           "max": 1,
-          "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "spanNulls": true }
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": "балансировка.*" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byRegexp",
+              "options": "балансировка.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "закреплены.*" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byRegexp",
+              "options": "закреплены.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_excavator_idle_ratio{strategy=\"balanced\"}", "legendFormat": "балансировка, {{excavator}}" },
-        { "refId": "B", "expr": "quarry_excavator_idle_ratio{strategy=\"fixed\"}", "legendFormat": "закреплены, {{excavator}}" }
+        {
+          "refId": "A",
+          "expr": "quarry_excavator_idle_ratio{strategy=\"balanced\"}",
+          "legendFormat": "балансировка, {{excavator}}"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_excavator_idle_ratio{strategy=\"fixed\"}",
+          "legendFormat": "закреплены, {{excavator}}"
+        }
       ]
     },
     {
       "type": "timeseries",
       "id": 9,
       "title": "Очередь у забоя, самосвалов",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "custom": { "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "spanNulls": true, "axisSoftMax": 4 }
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisSoftMax": 4
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": "балансировка.*" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#4C8DFF" } }]
+            "matcher": {
+              "id": "byRegexp",
+              "options": "балансировка.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4C8DFF"
+                }
+              }
+            ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "закреплены.*" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#D2701F" } }]
+            "matcher": {
+              "id": "byRegexp",
+              "options": "закреплены.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D2701F"
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_queue_len{strategy=\"balanced\"}", "legendFormat": "балансировка, {{excavator}}" },
-        { "refId": "B", "expr": "quarry_queue_len{strategy=\"fixed\"}", "legendFormat": "закреплены, {{excavator}}" }
+        {
+          "refId": "A",
+          "expr": "quarry_queue_len{strategy=\"balanced\"}",
+          "legendFormat": "балансировка, {{excavator}}"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_queue_len{strategy=\"fixed\"}",
+          "legendFormat": "закреплены, {{excavator}}"
+        }
       ]
     },
     {
       "type": "timeseries",
       "id": 10,
       "title": "Самосвалы по состояниям, парк с балансировкой",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 70,
             "showPoints": "never",
             "spanNulls": true,
-            "stacking": { "mode": "normal", "group": "A" }
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "quarry_trucks{strategy=\"balanced\"}", "legendFormat": "{{state}}" }
+        {
+          "refId": "A",
+          "expr": "quarry_trucks{strategy=\"balanced\"}",
+          "legendFormat": "{{state}}"
+        }
       ]
     },
     {
@@ -351,23 +762,159 @@
       "id": 11,
       "title": "Поток телеметрии, сообщений в секунду",
       "description": "Провал и последующий всплеск, это обрыв канала и догон накопленного буфера.",
-      "datasource": { "type": "prometheus", "uid": "quarry-prom" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "color": { "mode": "fixed", "fixedColor": "#4C8DFF" },
-          "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "spanNulls": true }
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4C8DFF"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
-        { "refId": "A", "expr": "sum(rate(quarry_messages_total[1m]))", "legendFormat": "принято сообщений" }
+        {
+          "refId": "A",
+          "expr": "sum(rate(quarry_messages_total[1m]))",
+          "legendFormat": "принято сообщений"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "Приём с бортов по EGTS, записей в секунду",
+      "description": "Столько записей приходит от бортовых терминалов. Если здесь ноль, а поток телеметрии ещё идёт, значит вещает буфер, а борта молчат.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(egts_records_total{kind=\"truck\"}[1m]))",
+          "legendFormat": "самосвалы"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(egts_records_total{kind=\"excavator\"}[1m]))",
+          "legendFormat": "экскаваторы"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 13,
+      "title": "Бортов на связи",
+      "description": "Терминалы, которые сейчас держат соединение со шлюзом. Обрыв канала виден здесь раньше, чем в показателях карьера.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4C8DFF"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "egts_connections",
+          "legendFormat": "бортов"
+        }
       ]
     }
   ]
