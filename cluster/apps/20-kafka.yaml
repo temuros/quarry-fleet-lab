@@ -79,12 +79,17 @@ spec:
               value: /var/lib/kafka/data
             - name: CLUSTER_ID
               value: wqiL2YOzQPS9r4Hd0Czk6A
+          # 🔴 Проба проверяет порт, а не запускает kafka-topics.sh. Прежняя
+          # проба поднимала JVM на каждую проверку и занимала 24 секунды при
+          # таймауте 10: под работал, данные шли, а кластер считал его
+          # неготовым и не пускал в службу. Проба должна стоить дешевле того,
+          # что она проверяет, иначе она сама становится причиной отказа.
           readinessProbe:
-            exec:
-              command: ["/bin/sh", "-c", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+            tcpSocket:
+              port: 9092
             initialDelaySeconds: 25
             periodSeconds: 15
-            timeoutSeconds: 10
+            timeoutSeconds: 5
           resources:
             requests: { cpu: 200m, memory: 512Mi }
             limits: { memory: 1400Mi }
