@@ -19,6 +19,10 @@ spec:
       containers:
         - name: collector
           image: registry.quarry.local:5000/quarry/collector:local
+          # 🔴 Тег :local не меняется от сборки к сборке, а Kubernetes по
+          # умолчанию не перекачивает образ, который уже есть на узле. Без
+          # этой строки выкат выглядит успешным, а работает прежний код.
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -61,11 +65,23 @@ spec:
       containers:
         - name: sim
           image: registry.quarry.local:5000/quarry/sim:local
+          # 🔴 Тег :local не меняется от сборки к сборке, а Kubernetes по
+          # умолчанию не перекачивает образ, который уже есть на узле. Без
+          # этой строки выкат выглядит успешным, а работает прежний код.
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
             - name: KAFKA_BROKER
               value: kafka-0.kafka:9092
+            # Телеметрия уходит по EGTS через шлюз, события смены по-прежнему
+            # в шину: на площадке события формирует система, а не терминал.
+            - name: TRANSPORT
+              value: egts
+            - name: EGTS_HOST
+              value: egts-gateway
+            - name: EGTS_PORT
+              value: "7777"
             - name: DISPATCH
               value: fixed
             - name: FLEET
@@ -107,11 +123,21 @@ spec:
       containers:
         - name: sim
           image: registry.quarry.local:5000/quarry/sim:local
+          # 🔴 Тег :local не меняется от сборки к сборке, а Kubernetes по
+          # умолчанию не перекачивает образ, который уже есть на узле. Без
+          # этой строки выкат выглядит успешным, а работает прежний код.
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
             - name: KAFKA_BROKER
               value: kafka-0.kafka:9092
+            - name: TRANSPORT
+              value: egts
+            - name: EGTS_HOST
+              value: egts-gateway
+            - name: EGTS_PORT
+              value: "7777"
             - name: DISPATCH
               value: balanced
             - name: FLEET

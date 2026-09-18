@@ -1,0 +1,69 @@
+# Шлюз телеметрии: борта говорят с ним по EGTS, он кладёт данные в шину.
+#
+# На площадке это место занимает приёмник телематики, к которому подключаются
+# бортовые терминалы техники. Шлюз выделен отдельно от приёмника показателей
+# намеренно: протокол на борту меняется (EGTS, Wialon, своё у вендора), а
+# обработка данных остаётся прежней.
+apiVersion: v1
+kind: Service
+metadata:
+  name: egts-gateway
+  namespace: quarry
+spec:
+  selector:
+    app: egts-gateway
+  ports:
+    - name: egts
+      port: 7777
+      targetPort: 7777
+    - name: metrics
+      port: 8090
+      targetPort: 8090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: egts-gateway
+  namespace: quarry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: egts-gateway }
+  template:
+    metadata:
+      labels: { app: egts-gateway }
+      annotations:
+        # Шлюз отдаёт свои счётчики: сколько пакетов пришло, сколько записей,
+        # сколько битых сумм, сколько бортов на связи. Без этого «данные не
+        # идут» невозможно разобрать: непонятно, молчит борт или упал приём.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8090"
+    spec:
+      containers:
+        - name: gateway
+          image: registry.quarry.local:5000/quarry/egts:local
+          # 🔴 Тег :local не меняется от сборки к сборке, а Kubernetes по
+          # умолчанию не перекачивает образ, который уже есть на узле. Без
+          # этой строки выкат выглядит успешным, а работает прежний код.
+          imagePullPolicy: Always
+          env:
+            - name: KAFKA_BROKER
+              value: kafka-0.kafka:9092
+            - name: EGTS_PORT
+              value: "7777"
+            - name: METRICS_PORT
+              value: "8090"
+          ports:
+            - containerPort: 7777
+            - containerPort: 8090
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            tcpSocket:
+              port: 7777
+            initialDelaySeconds: 5
+            periodSeconds: 10

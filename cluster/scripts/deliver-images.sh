@@ -30,17 +30,25 @@ echo "$REGISTRY"
 
 if [ "$SKIP_BUILD" != "1" ]; then
   say "сборка образов снаружи контура"
-  "$DOCKER" build -q -t quarry/sim:local "$(wslpath -w "$REPO/sim")"
-  "$DOCKER" build -q -t quarry/collector:local "$(wslpath -w "$REPO/collector")"
+  # Контекст сборки это корень репозитория: кодек EGTS общий у борта и шлюза,
+  # две копии одного протокола расходятся молча.
+  # ⚠️ docker.exe это windows-процесс: путь к Dockerfile он ищет от СВОЕГО
+  # текущего каталога, а не от каталога, из которого мы зовём его в WSL.
+  # Относительный путь молча превращается в «файл не найден».
+  KORNEN="$(wslpath -w "$REPO")"
+  for obraz in sim collector egts; do
+    "$DOCKER" build -q -f "$(wslpath -w "$REPO/$obraz/Dockerfile")"       -t "quarry/$obraz:local" "$KORNEN"
+  done
 
   say "выгрузка в файлы"
   "$DOCKER" save quarry/sim:local -o "$(wslpath -w "$ARTIFACTS/sim.tar")"
   "$DOCKER" save quarry/collector:local -o "$(wslpath -w "$ARTIFACTS/collector.tar")"
+  "$DOCKER" save quarry/egts:local -o "$(wslpath -w "$ARTIFACTS/egts.tar")"
 fi
 ls -lh "$ARTIFACTS"/*.tar
 
 say "перенос файлов в реестр внутри контура"
-for name in sim collector; do
+for name in sim collector egts; do
   skopeo copy --dest-tls-verify=false \
     "docker-archive:$ARTIFACTS/$name.tar" \
     "docker://$REGISTRY/quarry/$name:local"
@@ -49,7 +57,7 @@ done
 say "что лежит в реестре"
 curl -s "http://$REGISTRY/v2/_catalog"
 echo
-for name in sim collector; do
+for name in sim collector egts; do
   printf 'quarry/%s: ' "$name"
   curl -s "http://$REGISTRY/v2/quarry/$name/tags/list"
   echo

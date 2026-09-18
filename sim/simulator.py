@@ -19,6 +19,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 # ---------------------------------------------------------------- настройки
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
+# Чем борт говорит наружу: kafka это прежний прямой путь в шину, egts это
+# бортовой терминал и протокол, как на реальной машине.
+TRANSPORT = os.getenv("TRANSPORT", "kafka")
+EGTS_HOST = os.getenv("EGTS_HOST", "egts-gateway")
+EGTS_PORT = int(os.getenv("EGTS_PORT", "7777"))
 TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 TOPIC_EVENTS = os.getenv("TOPIC_EVENTS", "quarry.events")
 
@@ -538,12 +543,17 @@ def main():
         "queue.buffering.max.messages": 400000,
         "compression.type": "lz4",
     })
-    uplink = Uplink(producer)
+    if TRANSPORT == "egts":
+        from egts_uplink import EgtsUplink
+        uplink = EgtsUplink(producer, EGTS_HOST, EGTS_PORT, FLEET, bufer_max=BUFFER_MAX)
+    else:
+        uplink = Uplink(producer)
     quarry = Quarry(uplink, STRATEGY)
     ref = {"q": quarry}
     threading.Thread(target=http_server, args=(uplink, ref), daemon=True).start()
-    print("[sim] парк {}, стратегия {}, самосвалов {}, ускорение {}x, брокер {}".format(
-        FLEET, STRATEGY, TRUCKS, SPEED, BROKER), flush=True)
+    kuda = f"EGTS {EGTS_HOST}:{EGTS_PORT}" if TRANSPORT == "egts" else f"Kafka {BROKER}"
+    print("[sim] парк {}, стратегия {}, самосвалов {}, ускорение {}x, телеметрия в {}".format(
+        FLEET, STRATEGY, TRUCKS, SPEED, kuda), flush=True)
 
     wall_step = TICK_SEC / SPEED
     next_wall = time.monotonic()

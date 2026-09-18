@@ -55,7 +55,9 @@ services:
     restart: unless-stopped
 
   collector:
-    build: ./collector
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
     container_name: quarry-collector
     environment:
       KAFKA_BROKER: kafka:9092
@@ -68,11 +70,37 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # Шлюз телеметрии: борта говорят с ним по EGTS, он кладёт данные в шину.
+  # Ровно это место на площадке занимает приёмник телематики.
+  egts-gateway:
+    build:
+      context: .
+      dockerfile: egts/Dockerfile
+    container_name: quarry-egts
+    environment:
+      KAFKA_BROKER: kafka:9092
+      EGTS_PORT: "7777"
+      METRICS_PORT: "8090"
+    ports:
+      - "7777:7777"
+      - "8090:8090"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   sim-fixed:
-    build: ./sim
+    build:
+      context: .
+      dockerfile: sim/Dockerfile
     container_name: quarry-sim-fixed
     environment:
       KAFKA_BROKER: kafka:9092
+      # Телеметрия уходит по EGTS через шлюз, события смены по-прежнему в шину:
+      # на площадке события формирует система, а не бортовой терминал.
+      TRANSPORT: egts
+      EGTS_HOST: egts-gateway
+      EGTS_PORT: "7777"
       DISPATCH: fixed
       FLEET: fixed
       TRUCKS: "8"
@@ -85,13 +113,20 @@ services:
     depends_on:
       kafka-init:
         condition: service_completed_successfully
+      egts-gateway:
+        condition: service_started
     restart: unless-stopped
 
   sim-balanced:
-    build: ./sim
+    build:
+      context: .
+      dockerfile: sim/Dockerfile
     container_name: quarry-sim-balanced
     environment:
       KAFKA_BROKER: kafka:9092
+      TRANSPORT: egts
+      EGTS_HOST: egts-gateway
+      EGTS_PORT: "7777"
       DISPATCH: balanced
       FLEET: balanced
       TRUCKS: "8"
@@ -105,6 +140,8 @@ services:
     depends_on:
       kafka-init:
         condition: service_completed_successfully
+      egts-gateway:
+        condition: service_started
     restart: unless-stopped
 
   prometheus:

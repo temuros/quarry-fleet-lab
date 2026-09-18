@@ -121,6 +121,11 @@ EOF
       commit -q -m "Манифесты карьера: состояние на $(date '+%d.%m.%Y %H:%M')"
     git -C "$rabochaya" push -q origin main
     echo "залито в $REPO_NAME"
+    # ⚠️ Сам по себе ArgoCD опрашивает репозиторий раз в три минуты, и сразу
+    # после push он честно показывает Synced: просто про новый коммит он ещё
+    # не знает. Просим перечитать, иначе выкат выглядит как «ничего не
+    # произошло» и начинается поиск несуществующей ошибки.
+    kubectl -n argocd annotate app quarry argocd.argoproj.io/refresh=hard       --overwrite >/dev/null 2>&1 || true
   fi
   rm -rf "$rabochaya"
 }

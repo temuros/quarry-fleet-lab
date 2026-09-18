@@ -1,7 +1,11 @@
+# Контекст сборки это корень репозитория: борту нужен тот же кодек EGTS,
+# что и приёмному шлюзу, а две копии одного протокола расходятся молча.
+#   docker build -f sim/Dockerfile .
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
+COPY sim/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY simulator.py .
+COPY sim/simulator.py sim/egts_uplink.py ./
+COPY egts/protocol.py egts/skhema.py ./
 ENV PYTHONUNBUFFERED=1
 CMD ["python", "simulator.py"]

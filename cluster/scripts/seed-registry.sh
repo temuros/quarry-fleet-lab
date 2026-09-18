@@ -65,7 +65,7 @@ for file in "${!MIRROR[@]}"; do
 done
 
 say "заливаю наши образы"
-for name in sim collector; do
+for name in sim collector egts; do
   echo "--- quarry/$name:local"
   skopeo copy --dest-tls-verify=false \
     "docker-archive:$ARTIFACTS/$name.tar" \
