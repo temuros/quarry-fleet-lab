@@ -23,3 +23,6 @@ mirror-csi-csi-node-driver-registrar-v2.13.0.tar sig-storage/csi-node-driver-reg
 mirror-csi-csi-resizer-v1.13.1.tar             sig-storage/csi-resizer:v1.13.1
 mirror-csi-csi-snapshotter-v8.2.0.tar          sig-storage/csi-snapshotter:v8.2.0
 mirror-csi-livenessprobe-v2.15.0.tar           sig-storage/livenessprobe:v2.15.0
+
+# Тревоги: Alertmanager внутри контура
+mirror-alertmanager-v0.27.0.tar     mirror/alertmanager:v0.27.0

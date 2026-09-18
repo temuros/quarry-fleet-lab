@@ -39,6 +39,16 @@ data:
       scrape_interval: 5s
       evaluation_interval: 15s
 
+    # Куда Prometheus отдаёт сработавшие правила. Сам он тревоги не рассылает
+    # и историю их не помнит: это работа Alertmanager.
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
     scrape_configs:
       # Счётчики приёмного шлюза: сколько пакетов пришло с бортов, сколько
       # записей, сколько битых сумм. Без них вопрос «данные не идут» не
@@ -95,6 +105,8 @@ spec:
           ports:
             - containerPort: 9090
           volumeMounts:
+            - name: rules
+              mountPath: /etc/prometheus/rules
             - name: config
               mountPath: /etc/prometheus
             - name: data
@@ -105,6 +117,8 @@ spec:
       volumes:
         - name: config
           configMap: { name: prometheus-config }
+        - name: rules
+          configMap: { name: prometheus-rules }
         - name: data
           # ⚠️ Раньше здесь был emptyDir, и любой перезапуск пода стирал всю
           # историю показателей. На стенде это выглядит особенно обидно:

@@ -103,6 +103,13 @@ zalit_manifesty() {
     --from-file="$REPO/grafana/dashboards/" \
     --dry-run=client -o yaml > "$rabochaya/apps/45-dashboards.yaml"
 
+  # Правила тревог лежат файлом рядом с конфигурацией Prometheus и едут в
+  # кластер тем же путём, что и дашборды: в репозитории должно быть всё
+  # желаемое состояние, иначе ArgoCD снесёт то, чего не знает.
+  kubectl create configmap prometheus-rules -n quarry \
+    --from-file="$REPO/prometheus/alerts.yml" \
+    --dry-run=client -o yaml > "$rabochaya/apps/46-rules.yaml"
+
   cat > "$rabochaya/README.md" <<'EOF'
 # Манифесты карьера
 

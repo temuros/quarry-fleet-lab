@@ -25,6 +25,7 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
+            - containerPort: 8001
           env:
             - name: KAFKA_BROKER
               value: kafka-0.kafka:9092
@@ -48,6 +49,11 @@ spec:
     - name: metrics
       port: 8000
       targetPort: 8000
+    # Приём тревог от Alertmanager: они попадают в журнал смены, потому что в
+    # разборе смены отказ системы и поломка машины это один вопрос.
+    - name: alerts
+      port: 8001
+      targetPort: 8001
 ---
 apiVersion: apps/v1
 kind: Deployment

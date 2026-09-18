@@ -1,0 +1,95 @@
+# Тревоги стенда.
+#
+# Правило здесь появляется только если на него есть ответ: кому звонить и что
+# делать. Тревога, на которую никто не реагирует, обучает людей не смотреть на
+# тревоги вообще, и тогда пропускается та единственная, которая важна.
+#
+# Пороги выбраны по договорным показателям стенда: задержка приёма 2 секунды,
+# наряд смены 20 000 тонн за 12 часов.
+groups:
+  - name: potok-dannyh
+    rules:
+      # Самая важная тревога на площадке. Пока данные идут, всё остальное
+      # можно разобрать утром; когда данные встали, смена считается по бумаге.
+      - alert: QuarryTelemetryStopped
+        expr: rate(quarry_messages_total{topic="quarry.telemetry"}[2m]) == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "данные с бортов не идут"
+          description: "Телеметрия не поступает больше трёх минут. Смотреть: приёмный шлюз, сеть на карьере, питание мачт."
+
+      - alert: QuarryEventsStopped
+        expr: rate(quarry_messages_total{topic="quarry.events"}[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "события смены не идут"
+          description: "Рейсы и простои не приходят пять минут: наряд в отчёте будет неполным."
+
+      # Задержка это обещание заказчику, а не внутренняя метрика: по ней
+      # определяют, можно ли доверять диспетчерскому экрану.
+      - alert: QuarryIngestLagHigh
+        expr: quarry_sla_lag_seconds > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "задержка приёма выше договорной"
+          description: "Данные доходят дольше двух секунд. Экран диспетчера показывает прошлое."
+
+      # Очередь растёт, когда журнал не успевает писать: обычно это база или
+      # хранилище, а не приёмник.
+      - alert: QuarryQueueGrowing
+        expr: quarry_queue_len > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "очередь записи в журнал растёт"
+          description: "Приёмник накопил больше двух тысяч записей: проверить журнал смен и хранилище."
+
+  - name: sluzhby
+    rules:
+      - alert: QuarryCollectorDown
+        expr: up{job="quarry-collector"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "приёмник показателей не отвечает"
+          description: "Без него не считаются ни тонны, ни простои, и журнал смены не пополняется."
+
+      - alert: QuarryGatewayDown
+        expr: up{job="egts-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "приёмный шлюз не отвечает"
+          description: "Борта копят записи в буфере. Пока шлюз лежит, данные не теряются, но и не приходят."
+
+      - alert: QuarryNodeDown
+        expr: up{job="kubernetes-nodes"} == 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "узел кластера не отвечает"
+          description: "Проверить машину. Если она действительно вышла из строя, поставить метку out-of-service, иначе тома не переедут."
+
+  - name: smena
+    rules:
+      # Единственная тревога здесь не про технику, а про результат смены.
+      # Смотрим только после четырёх часов работы: в начале смены отставание
+      # это норма, парк ещё разгоняется.
+      - alert: QuarryShiftBehindPlan
+        expr: quarry_shift_done_ratio < 0.75 and quarry_shift_hours > 4
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "наряд смены под угрозой"
+          description: "Вывезено меньше трёх четвертей от плановой доли. Смотреть простои экскаваторов и машины в ремонте."

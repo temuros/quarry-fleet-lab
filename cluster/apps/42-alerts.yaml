@@ -1,0 +1,107 @@
+# Тревоги: Alertmanager внутри контура.
+#
+# Стенд умел переживать аварии и не умел о них сообщать: четыре учения мы
+# видели только потому, что сами их и устроили. На площадке так нельзя, там
+# про отказ должен узнать дежурный, а не тот, кто случайно открыл дашборд.
+#
+# Куда уходит тревога. Наружу почта не ходит по условию задачи, поэтому
+# основной получатель здесь внутренний: тревога уезжает в журнал смены и
+# появляется в ленте событий у диспетчера и в отчёте у начальника смены.
+# На площадке рядом с этим получателем встаёт почтовый релей периметра или
+# шлюз в систему дежурства, и заготовка для него лежит ниже.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: quarry
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: zhurnal-smeny
+      # Группируем по имени правила: когда встаёт узел, правила срабатывают
+      # пачкой, и десять отдельных записей в журнале смены только мешают
+      # разбору.
+      group_by: ["alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      # Повторять раз в час: тревога, которая повторяется каждую минуту,
+      # перестаёт читаться на третий раз.
+      repeat_interval: 1h
+      routes:
+        # Критичное повторяем чаще: «данные не идут» это остановка учёта
+        # смены, тут получасовая пауза слишком длинная.
+        - matchers: ['severity="critical"']
+          receiver: zhurnal-smeny
+          repeat_interval: 15m
+
+    receivers:
+      - name: zhurnal-smeny
+        webhook_configs:
+          - url: http://collector:8001/alert
+            send_resolved: true
+
+      # Заготовка для площадки: почтовый релей стоит внутри периметра, наружу
+      # по-прежнему ничего не уходит. Включается добавлением в route.
+      # - name: dezhurnyy
+      #   email_configs:
+      #     - to: dispatcher@quarry.local
+      #       from: alerts@quarry.local
+      #       smarthost: smtp.quarry.local:25
+      #       require_tls: false
+
+    inhibit_rules:
+      # Пока приёмник лежит, бессмысленно отдельно сообщать, что данные не
+      # идут: это следствие, а не вторая авария.
+      - source_matchers: ['alertname="QuarryCollectorDown"']
+        target_matchers: ['alertname=~"QuarryTelemetryStopped|QuarryEventsStopped|QuarryIngestLagHigh"']
+        equal: ["namespace"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: quarry
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: alertmanager }
+  template:
+    metadata:
+      labels: { app: alertmanager }
+    spec:
+      containers:
+        - name: alertmanager
+          image: registry.quarry.local:5000/mirror/alertmanager:v0.27.0
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            # Состояние тревог держим в памяти: терять историю подавлений при
+            # перезапуске не жалко, а том ради этого заводить незачем.
+            - --storage.path=/tmp/alertmanager
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9093 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+      volumes:
+        - name: config
+          configMap: { name: alertmanager-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: quarry
+spec:
+  selector: { app: alertmanager }
+  ports:
+    - port: 9093
+      targetPort: 9093

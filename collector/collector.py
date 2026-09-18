@@ -19,6 +19,7 @@ from confluent_kafka import Consumer
 from prometheus_client import Counter, Gauge, start_http_server
 
 from journal import Journal
+import alerts
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 GROUP = os.getenv("GROUP_ID", "quarry-collector")
@@ -26,6 +27,7 @@ TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 TOPIC_EVENTS = os.getenv("TOPIC_EVENTS", "quarry.events")
 
 PORT = int(os.getenv("METRICS_PORT", "8000"))
+ALERTS_PORT = int(os.getenv("ALERTS_PORT", "8001"))
 WINDOW_SIM_H = float(os.getenv("WINDOW_SIM_HOURS", "2"))       # окно скользящих средних
 SLA_LAG_SEC = float(os.getenv("SLA_LAG_SEC", "5"))             # порог задержки по требованиям площадки
 UPTIME_WINDOW_SEC = int(os.getenv("UPTIME_WINDOW_SEC", "300"))  # окно доступности потока
@@ -359,6 +361,9 @@ def ticker():
 
 def main():
     start_http_server(PORT)
+    # Приём тревог от Alertmanager: они попадают в ту же ленту событий, что и
+    # происшествия на карьере, потому что в разборе смены это один вопрос.
+    alerts.zapustit(journal, ALERTS_PORT)
     threading.Thread(target=ticker, daemon=True).start()
     consumer = Consumer({
         "bootstrap.servers": BROKER,

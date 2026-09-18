@@ -149,9 +149,26 @@ services:
     container_name: quarry-prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/rules/alerts.yml:ro
       - prom-data:/prometheus
     ports:
       - "9090:9090"
+    depends_on:
+      - collector
+    restart: unless-stopped
+
+  # Тревоги живут и в локальном стенде: правило, которое проверяли только в
+  # кластере, на ноутбуке разработчика молчит, и про это узнают поздно.
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: quarry-alertmanager
+    volumes:
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/tmp/alertmanager
+    ports:
+      - "9093:9093"
     depends_on:
       - collector
     restart: unless-stopped

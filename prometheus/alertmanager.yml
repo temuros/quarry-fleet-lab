@@ -1,0 +1,31 @@
+# Тревоги локального стенда.
+#
+# Получатель тот же, что и в кластере: тревога уезжает в журнал смены и
+# появляется в ленте событий. Так правило, написанное на ноутбуке, ведёт себя
+# ровно так же, как на площадке.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: zhurnal-smeny
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: zhurnal-smeny
+      repeat_interval: 15m
+
+receivers:
+  - name: zhurnal-smeny
+    webhook_configs:
+      - url: http://collector:8001/alert
+        send_resolved: true
+
+inhibit_rules:
+  # Пока приёмник лежит, отдельная тревога «данные не идут» это следствие,
+  # а не вторая авария.
+  - source_matchers: ['alertname="QuarryCollectorDown"']
+    target_matchers: ['alertname=~"QuarryTelemetryStopped|QuarryEventsStopped|QuarryIngestLagHigh"']
+    equal: ["instance"]

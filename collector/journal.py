@@ -99,6 +99,34 @@ class Journal:
         except queue.Full:
             self.dropped += 1
 
+    def zapisat_trevogu(self, nazvanie, vid, prichina, vazhnost="warning"):
+        """Положить в журнал тревогу мониторинга.
+
+        Тревога это событие смены наравне с поломкой машины: в отчёте она
+        объясняет провалы, которые иначе выглядят как «данные просто
+        пропали». Поле fleet заполняем словом «система», чтобы в отчёте было
+        видно, что речь о самой системе, а не о технике.
+        """
+        if not self.enabled:
+            return
+        row = (
+            time.time(),
+            0.0,          # часы карьера тут ни при чём: тревога живёт в реальном времени
+            0,            # смена проставляется при разборе, тревога может прийти между сменами
+            "система",
+            vazhnost,
+            vid,
+            nazvanie,
+            None,
+            prichina,
+            None,
+            None,
+        )
+        try:
+            self.queue.put_nowait(row)
+        except queue.Full:
+            self.dropped += 1
+
     # ---- фоновая часть
 
     def _connect(self):
