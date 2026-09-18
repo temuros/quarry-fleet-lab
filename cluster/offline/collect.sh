@@ -53,7 +53,10 @@ NUZHNY_FILES='/kubelet$|/kubectl$|/kubeadm$|etcd-v.*-linux-amd64\.tar\.gz$|cni-p
 # ⚠️ library/nginx тут не для сайта: Kubespray ставит его локальным
 # балансировщиком до API на каждом рабочем узле. Забыли образ - установка
 # доходит до самого конца и падает на выкате nginx-proxy.
-NUZHNY_IMAGES='kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|/pause|coredns/coredns|k8s-dns-node-cache|cluster-proportional-autoscaler|calico/node|calico/cni|calico/kube-controllers|local-path-provisioner|library/nginx'
+# ⚠️ kube-vip держит общий адрес API на том управляющем узле, который сейчас
+# лидер. Без него kubeconfig смотрит в один узел, и три управляющих узла не
+# спасают: теряется тот, чей адрес прописан.
+NUZHNY_IMAGES='kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|/pause|coredns/coredns|k8s-dns-node-cache|cluster-proportional-autoscaler|calico/node|calico/cni|calico/kube-controllers|local-path-provisioner|library/nginx|kube-vip'
 
 # Пакеты, которые Kubespray ставит на узлы (роль system_packages, Ubuntu).
 # 🔴 Проверять их наличие на узле, где Kubespray уже отработал, бесполезно:

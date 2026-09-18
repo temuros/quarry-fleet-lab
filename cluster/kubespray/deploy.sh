@@ -55,12 +55,20 @@ mkdir -p "$INVENTORY/group_vars/k8s_cluster" "$INVENTORY/group_vars/all"
     echo "      access_ip: $ip"
   done
   echo "  children:"
+  # 🔴 Управляющих узлов и членов etcd столько же, сколько машин, и это не
+  # щедрость, а арифметика кворума: большинство от трёх это два, значит один
+  # узел можно потерять. С одним управляющим его потеря останавливает
+  # управление, с двумя останавливает тоже: большинство от двух это два.
   echo "    kube_control_plane:"
   echo "      hosts:"
-  echo "        $(echo "${NODES[0]}" | cut -d' ' -f1):"
+  for entry in "${NODES[@]}"; do
+    echo "        $(echo "$entry" | cut -d' ' -f1):"
+  done
   echo "    etcd:"
   echo "      hosts:"
-  echo "        $(echo "${NODES[0]}" | cut -d' ' -f1):"
+  for entry in "${NODES[@]}"; do
+    echo "        $(echo "$entry" | cut -d' ' -f1):"
+  done
   echo "    kube_node:"
   echo "      hosts:"
   for entry in "${NODES[@]}"; do
@@ -176,8 +184,15 @@ say "разворачиваю кластер, это минут двадцать
 "$VENV/bin/ansible-playbook" -i "$INVENTORY/hosts.yaml" --become "$KUBESPRAY/cluster.yml"
 
 say "забираю доступ к кластеру"
+# Доступ выписывается на ОБЩИЙ адрес, а не на конкретный узел: иначе три
+# управляющих узла бессмысленны, потому что kubeconfig всё равно ходит в
+# один из них и вместе с ним теряется. Если общий адрес не задан в профиле,
+# остаётся прежнее поведение с первым узлом.
+API_ADDR="$(awk '/^kube_vip_address:/ {print $2}' "$HERE/profile.yml")"
+API_ADDR="${API_ADDR:-$SERVER_IP}"
+echo "адрес API: $API_ADDR"
 ssh -o StrictHostKeyChecking=no -i "$SSH_KEY" "$SSH_USER@$SERVER_IP" 'sudo cat /etc/kubernetes/admin.conf' |
-  sed "s#https://127.0.0.1:6443#https://$SERVER_IP:6443#; s#https://localhost:6443#https://$SERVER_IP:6443#" > "$KUBECONFIG_OUT"
+  sed "s#https://127.0.0.1:6443#https://$API_ADDR:6443#; s#https://localhost:6443#https://$API_ADDR:6443#; s#https://$SERVER_IP:6443#https://$API_ADDR:6443#" > "$KUBECONFIG_OUT"
 chmod 600 "$KUBECONFIG_OUT"
 
 say "кластер"
