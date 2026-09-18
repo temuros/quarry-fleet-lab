@@ -73,8 +73,12 @@ NUZHNY_IMAGES='kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|
 # монтировать том и честно отвечает «bad option», хотя дело не в опциях, а в
 # отсутствии помощника mount.nfs. Под с сетевым томом при этом висит в
 # ContainerCreating, и причина не видна ни в одном логе кластера.
+#
+# nfs-kernel-server, drbd-utils и keepalived нужны машинам хранилища: сервер
+# отдаёт том, drbd держит его копию на второй машине, keepalived переносит
+# общий адрес на живую. Модуль drbd уже лежит в linux-modules-extra.
 NODE_KERNEL="${NODE_KERNEL:-6.8.0-139-generic}"
-APT_PKGS="${APT_PKGS:-apparmor apt-transport-https bash-completion conntrack curl e2fsprogs ebtables iproute2 iptables iputils-ping ipvsadm ipset libseccomp2 openssl python3-apt rsync socat software-properties-common tar unzip xfsprogs chrony nfs-common linux-modules-extra-$NODE_KERNEL}"
+APT_PKGS="${APT_PKGS:-apparmor apt-transport-https bash-completion conntrack curl e2fsprogs ebtables iproute2 iptables iputils-ping ipvsadm ipset libseccomp2 openssl python3-apt rsync socat software-properties-common tar unzip xfsprogs chrony nfs-common nfs-kernel-server drbd-utils keepalived linux-modules-extra-$NODE_KERNEL}"
 # GitOps внутри контура: ArgoCD тянет манифесты из git-сервера, который тоже
 # стоит внутри. Gitea выбрана вместо GitLab намеренно: у неё один образ и файл
 # базы, а в закрытый контур каждую площадку тащить GitLab это отдельная работа.
