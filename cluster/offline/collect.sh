@@ -19,6 +19,7 @@
 #   ./collect.sh files      только файлы
 #   ./collect.sh images     только образы
 #   ./collect.sh apt        только репозиторий пакетов
+#   ./collect.sh gitops     манифесты и образы ArgoCD и Gitea
 #
 set -euo pipefail
 
@@ -59,6 +60,11 @@ NUZHNY_IMAGES='kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|
 # половину этого списка он туда и поставил. Набор считается относительно
 # ЧИСТОГО образа, его состав снят в base-image-packages.txt.
 APT_PKGS="${APT_PKGS:-apparmor apt-transport-https bash-completion conntrack curl e2fsprogs ebtables iproute2 iptables iputils-ping ipvsadm ipset libseccomp2 openssl python3-apt rsync socat software-properties-common tar unzip xfsprogs}"
+# GitOps внутри контура: ArgoCD тянет манифесты из git-сервера, который тоже
+# стоит внутри. Gitea выбрана вместо GitLab намеренно: у неё один образ и файл
+# базы, а в закрытый контур каждую площадку тащить GitLab это отдельная работа.
+ARGOCD_VERSION="${ARGOCD_VERSION:-v3.5.3}"
+GITEA_VERSION="${GITEA_VERSION:-1.27.3}"
 APT_SUITE="${APT_SUITE:-noble}"
 APT_BASE="${APT_BASE:-http://archive.ubuntu.com/ubuntu}"
 
@@ -240,12 +246,45 @@ sobrat_apt() {
   du -sh "$APT"
 }
 
+# ─────────────────────────── GitOps: ArgoCD и Gitea ───────────────────────────
+# Образы кладём файлами рядом с образами карьера: внутрь контура они попадают
+# тем же путём, через seed-registry.sh в реестр кластера. Зеркало на шлюзе
+# нужно только для установки САМОГО кластера, дальше живём своим реестром.
+sobrat_gitops() {
+  say "GitOps: манифесты и образы"
+  local vygruzka="$REPO/cluster/artifacts"
+  mkdir -p "$ARTIFACTS/gitops"
+
+  echo "--- манифест ArgoCD $ARGOCD_VERSION"
+  curl -fL --retry 3 -s     "https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/install.yaml"     -o "$ARTIFACTS/gitops/argocd-install.yaml"
+  grep -cE '^\s+image:' "$ARTIFACTS/gitops/argocd-install.yaml" >/dev/null
+
+  # Dex намеренно не приносим: он нужен для входа через внешний SSO, а на стенде
+  # хватает локального администратора. Меньше образ, меньше подов, меньше слов
+  # в объяснении, что тут вообще происходит.
+  local -A OBRAZY=(
+    ["mirror-argocd-$ARGOCD_VERSION.tar"]="quay.io/argoproj/argocd:$ARGOCD_VERSION"
+    ["mirror-redis-8.2.3-alpine.tar"]="public.ecr.aws/docker/library/redis:8.2.3-alpine"
+    ["mirror-gitea-$GITEA_VERSION.tar"]="docker.io/gitea/gitea:$GITEA_VERSION"
+  )
+  for fayl in "${!OBRAZY[@]}"; do
+    if [ -s "$vygruzka/$fayl" ]; then
+      echo "уже есть: $fayl"
+      continue
+    fi
+    echo "--- ${OBRAZY[$fayl]}"
+    skopeo copy --retry-times 3 "docker://${OBRAZY[$fayl]}" "docker-archive:$vygruzka/$fayl" >/dev/null
+  done
+  du -sh "$vygruzka"/mirror-argocd-* "$vygruzka"/mirror-gitea-* "$vygruzka"/mirror-redis-* 2>/dev/null
+}
+
 shag="${1:-все}"
 case "$shag" in
   lists)  trebuetsya_internet; sobrat_spiski ;;
   files)  trebuetsya_internet; skachat_fayly ;;
   images) trebuetsya_internet; skachat_reestr; zalit_obrazy ;;
   apt)    trebuetsya_internet; sobrat_apt ;;
+  gitops) trebuetsya_internet; sobrat_gitops ;;
   все|all)
     trebuetsya_internet
     sobrat_spiski

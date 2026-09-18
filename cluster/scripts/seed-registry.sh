@@ -14,13 +14,13 @@ ARTIFACTS="${ARTIFACTS:-$REPO/cluster/artifacts}"
 SSH_KEY="${SSH_KEY:-/root/.ssh/quarry-lab}"
 SSH_USER="${SSH_USER:-ubuntu}"
 
-# файл с образом -> имя, под которым он ляжет в наш реестр
-declare -A MIRROR=(
-  ["mirror-apache-kafka-3.8.1.tar"]="mirror/kafka:3.8.1"
-  ["mirror-prom-prometheus-v2.55.1.tar"]="mirror/prometheus:v2.55.1"
-  ["mirror-grafana-grafana-11.3.0.tar"]="mirror/grafana:11.3.0"
-  ["mirror-postgres-16-alpine.tar"]="mirror/postgres:16-alpine"
-)
+# Что нести в реестр, перечислено в images.map: файл и имя через пробел.
+# Раньше список жил прямо здесь, и каждый новый образ означал правку кода.
+declare -A MIRROR=()
+while read -r fayl imya; do
+  case "$fayl" in ''|'#'*) continue ;; esac
+  MIRROR["$fayl"]="$imya"
+done < "$HERE/images.map"
 
 say() { printf '\n=== %s\n' "$*"; }
 

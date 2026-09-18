@@ -1,0 +1,16 @@
+# Что кладём в реестр внутри контура: файл в cluster/artifacts -> имя в реестре.
+#
+# Отдельным файлом, а не списком внутри скрипта: новый образ в контуре это
+# обычное дело, и добавление строки сюда не должно означать правку кода.
+# Сами файлы собирает cluster/offline/collect.sh, в git они не уезжают.
+
+# Нагрузка карьера
+mirror-apache-kafka-3.8.1.tar       mirror/kafka:3.8.1
+mirror-postgres-16-alpine.tar       mirror/postgres:16-alpine
+mirror-prom-prometheus-v2.55.1.tar  mirror/prometheus:v2.55.1
+mirror-grafana-grafana-11.3.0.tar   mirror/grafana:11.3.0
+
+# GitOps внутри контура
+mirror-gitea-1.27.3.tar             mirror/gitea:1.27.3
+mirror-argocd-v3.5.3.tar            mirror/argocd:v3.5.3
+mirror-redis-8.2.3-alpine.tar       mirror/redis:8.2.3-alpine
