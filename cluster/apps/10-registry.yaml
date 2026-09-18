@@ -3,35 +3,48 @@
 # На площадке заказчика нет выхода в интернет и нет GitLab внутри, поэтому
 # образы должны храниться здесь же, а попадать сюда переносом файла.
 # Harbor для этого избыточен: registry:2 закрывает задачу целиком.
+#
+# 🔴 Реестр в одном экземпляре это единственная точка отказа всего контура,
+# и учение это показало: когда узел с реестром погас, выселенные поды на
+# соседних узлах встали в ErrImagePull. Образ взять неоткуда, а значит
+# кластер не может ни переехать, ни перезапуститься, ни выкатить обновление.
+# Кластер переживает потерю узла ровно настолько, насколько её переживает
+# раздача образов.
+#
+# Поэтому реплик две, и они разнесены по разным узлам. Хранилище здесь
+# локальное (local-path), общего тома на несколько узлов в стенде нет, так
+# что каждая реплика держит СВОЮ полную копию. Отсюда правило: наполнять
+# надо обе, поимённо, и после заливки сверять каталоги. Именно это делает
+# cluster/scripts/seed-registry.sh.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: quarry-infra
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: registry-data
-  namespace: quarry-infra
-spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 5Gi
----
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: registry
   namespace: quarry-infra
 spec:
-  replicas: 1
+  serviceName: registry-peers
+  replicas: 2
+  podManagementPolicy: Parallel
   selector:
     matchLabels: { app: registry }
   template:
     metadata:
       labels: { app: registry }
     spec:
+      affinity:
+        podAntiAffinity:
+          # required, а не preferred: реестр, обе копии которого уехали на один
+          # узел, это тот же единственный экземпляр, только дороже. Пусть лучше
+          # вторая реплика ждёт свободный узел, чем делает вид, что резерв есть.
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: { app: registry }
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: registry
           image: registry:2
@@ -52,11 +65,18 @@ spec:
           resources:
             requests: { cpu: 50m, memory: 128Mi }
             limits: { memory: 512Mi }
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: registry-data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
 ---
+# Общий вход для скачивания образов. NodePort слушает на КАЖДОМ узле, а
+# kube-proxy уводит запрос к любой готовой реплике: узлу достаточно знать
+# свой собственный адрес, чтобы добраться до живого реестра.
 apiVersion: v1
 kind: Service
 metadata:
@@ -69,3 +89,49 @@ spec:
     - port: 5000
       targetPort: 5000
       nodePort: 30500
+---
+# Отдельные входы в каждую реплику: нужны для наполнения и для сверки.
+# Заливать через общий вход нельзя, kube-proxy разложит образы по репликам
+# как ему удобнее, и каждая окажется наполовину пустой. Такой реестр хуже
+# одного: отказ будет выглядеть случайным.
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-0
+  namespace: quarry-infra
+spec:
+  type: NodePort
+  selector:
+    app: registry
+    statefulset.kubernetes.io/pod-name: registry-0
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-1
+  namespace: quarry-infra
+spec:
+  type: NodePort
+  selector:
+    app: registry
+    statefulset.kubernetes.io/pod-name: registry-1
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30502
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-peers
+  namespace: quarry-infra
+spec:
+  clusterIP: None
+  selector: { app: registry }
+  ports:
+    - port: 5000
+      targetPort: 5000

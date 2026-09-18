@@ -13,6 +13,9 @@ TF_DIR="${TF_DIR:-$REPO/cluster/terraform}"
 ARTIFACTS="${ARTIFACTS:-$REPO/cluster/artifacts}"
 SSH_KEY="${SSH_KEY:-/root/.ssh/quarry-lab}"
 SSH_USER="${SSH_USER:-ubuntu}"
+# Свой путь к доступу, чтобы скрипт работал и из чистой оболочки: без этого
+# kubectl молча идёт на localhost:8080 и падает на первом же apply.
+export KUBECONFIG="${KUBECONFIG:-$REPO/cluster/kubespray/kubeconfig}"
 
 # Что нести в реестр, перечислено в images.map: файл и имя через пробел.
 # Раньше список жил прямо здесь, и каждый новый образ означал правку кода.
@@ -30,6 +33,13 @@ mapfile -t NODES < <(
 )
 NODE_IP="$(echo "${NODES[0]}" | cut -d' ' -f2)"
 REGISTRY="$NODE_IP:30500"
+
+# 🔴 Реплик реестра две, и у каждой СВОЁ хранилище: общего тома на несколько
+# узлов в стенде нет. Заливать через общий вход нельзя, kube-proxy разложит
+# образы по репликам как ему удобнее, и каждая останется наполовину пустой.
+# Такой реестр хуже одного: выкаты начнут падать через раз, и причина будет
+# выглядеть случайной. Поэтому у каждой реплики свой вход, и льём в оба.
+KOPII="${KOPII:-$NODE_IP:30501 $NODE_IP:30502}"
 
 say "кладу registry:2 прямо в containerd узлов"
 for entry in "${NODES[@]}"; do
@@ -51,26 +61,50 @@ done
 
 say "поднимаю реестр"
 kubectl apply -f "$REPO/cluster/apps/10-registry.yaml" >/dev/null
-kubectl -n quarry-infra rollout status deploy/registry --timeout=180s
+kubectl -n quarry-infra rollout status sts/registry --timeout=300s
 
-say "жду, пока реестр начнёт отвечать"
-until curl -sf -m 3 "http://$REGISTRY/v2/_catalog" >/dev/null; do sleep 3; done
+say "жду, пока обе реплики начнут отвечать"
+for kopiya in $KOPII; do
+  until curl -sf -m 3 "http://$kopiya/v2/_catalog" >/dev/null; do sleep 3; done
+  echo "$kopiya отвечает"
+done
 
-say "заливаю чужие образы"
+say "заливаю чужие образы в обе реплики"
 for file in "${!MIRROR[@]}"; do
   echo "--- ${MIRROR[$file]}"
-  skopeo copy --dest-tls-verify=false \
-    "docker-archive:$ARTIFACTS/$file" \
-    "docker://$REGISTRY/${MIRROR[$file]}"
+  for kopiya in $KOPII; do
+    skopeo copy --dest-tls-verify=false \
+      "docker-archive:$ARTIFACTS/$file" \
+      "docker://$kopiya/${MIRROR[$file]}" >/dev/null
+  done
 done
 
-say "заливаю наши образы"
+say "заливаю наши образы в обе реплики"
 for name in sim collector egts; do
   echo "--- quarry/$name:local"
-  skopeo copy --dest-tls-verify=false \
-    "docker-archive:$ARTIFACTS/$name.tar" \
-    "docker://$REGISTRY/quarry/$name:local"
+  for kopiya in $KOPII; do
+    skopeo copy --dest-tls-verify=false \
+      "docker-archive:$ARTIFACTS/$name.tar" \
+      "docker://$kopiya/quarry/$name:local" >/dev/null
+  done
 done
+
+say "сверяю реплики"
+# Копия, про которую не проверили, что она полная, резервом не является:
+# расхождение вскроется ровно тогда, когда одна из реплик останется одна.
+etalon=""
+for kopiya in $KOPII; do
+  spisok="$(curl -s "http://$kopiya/v2/_catalog" | tr ',' '\n' | tr -d '\r' | sort)"
+  echo "$kopiya: образов $(echo "$spisok" | grep -c .)"
+  if [ -z "$etalon" ]; then
+    etalon="$spisok"
+  elif [ "$spisok" != "$etalon" ]; then
+    echo "⚠️ реплики разошлись" >&2
+    diff <(echo "$etalon") <(echo "$spisok") || true
+    exit 1
+  fi
+done
+echo "✅ реплики совпадают"
 
 say "что теперь лежит в реестре"
 curl -s "http://$REGISTRY/v2/_catalog"

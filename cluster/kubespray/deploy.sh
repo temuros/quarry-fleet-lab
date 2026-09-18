@@ -91,13 +91,23 @@ cat > "$INVENTORY/group_vars/k8s_cluster/quarry.yml" <<EOF
 #
 # containerd на узлах ходит в реестры внутри контура, а не в интернет.
 # Имя registry.quarry.local постоянное, адрес подставляется отсюда.
+#
+# 🔴 Адресов перечислено столько, сколько узлов. Раньше здесь стоял один
+# управляющий узел, и его падение останавливало скачивание образов на всём
+# кластере, хотя сам реестр был жив на другой машине. NodePort слушает на
+# каждом узле, поэтому список адресов это список запасных дверей: containerd
+# пробует их по очереди. После установки cluster/scripts/configure-registry.sh
+# переставляет на каждом узле его собственный адрес первым.
 containerd_registries_mirrors:
   - prefix: registry.quarry.local:5000
     server: http://$SERVER_IP:30500
     mirrors:
-      - host: http://$SERVER_IP:30500
-        capabilities: ["pull", "resolve"]
-        skip_verify: true
+$(for entry in "${NODES[@]}"; do
+  ip="$(echo "$entry" | cut -d' ' -f2)"
+  echo "      - host: http://$ip:30500"
+  echo '        capabilities: ["pull", "resolve"]'
+  echo "        skip_verify: true"
+done)
 $(if [ "$OFFLINE" = "1" ]; then cat <<VNUTRI
   # Зеркало, с которого узлы берут образы САМОГО кластера. Внутрикластерный
   # реестр для этого не годится: его ещё нет, пока кластера нет.
