@@ -1,16 +1,19 @@
-cluster_name: quarry.local
-
-# containerd на узлах ходит в наш реестр внутри контура, а не в интернет.
-# Имя постоянное, адрес подставляется отсюда.
+# Файл собирается deploy.sh, править руками нет смысла.
+#
+# containerd на узлах ходит в реестры внутри контура, а не в интернет.
+# Имя registry.quarry.local постоянное, адрес подставляется отсюда.
 containerd_registries_mirrors:
   - prefix: registry.quarry.local:5000
+    server: http://192.168.200.191:30500
     mirrors:
-      - host: http://192.168.122.67:30500
+      - host: http://192.168.200.191:30500
         capabilities: ["pull", "resolve"]
         skip_verify: true
-
-# Стенд скромный по ресурсам, лишнее не ставим.
-dashboard_enabled: false
-metrics_server_enabled: false
-helm_enabled: false
-kube_network_plugin: calico
+  # Зеркало, с которого узлы берут образы САМОГО кластера. Внутрикластерный
+  # реестр для этого не годится: его ещё нет, пока кластера нет.
+  - prefix: 192.168.200.1:5000
+    server: http://192.168.200.1:5000
+    mirrors:
+      - host: http://192.168.200.1:5000
+        capabilities: ["pull", "resolve"]
+        skip_verify: true

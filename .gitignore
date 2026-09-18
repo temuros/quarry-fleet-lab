@@ -11,3 +11,9 @@ cluster/terraform/terraform.tfstate*
 cluster/terraform/*.tfvars
 cluster/kubespray/inventory/quarry/hosts.yaml
 cluster/kubespray/kubeconfig
+
+# Инвентарь Kubespray собирается deploy.sh под текущие адреса машин.
+# Исходники лежат в репозитории: cluster/kubespray/profile.yml и
+# cluster/offline/render-offline-vars.sh.
+cluster/kubespray/inventory/quarry/group_vars/all/offline.yml
+cluster/kubespray/inventory/quarry/group_vars/k8s_cluster/profile.yml

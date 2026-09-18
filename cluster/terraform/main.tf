@@ -76,6 +76,10 @@ resource "libvirt_cloudinit_disk" "init" {
   user_data = templatefile("${path.module}/cloud-init/user-data.yaml.tftpl", {
     hostname = "${var.prefix}-${count.index + 1}"
     ssh_key  = trimspace(file(var.ssh_public_key))
+    # В изолированной сети внешние зеркала Ubuntu недоступны, а apt всё равно
+    # обновляет кэш: Kubespray делает это в роли system_packages. Узел рождается
+    # настроенным на репозиторий внутри контура.
+    apt_mirror = var.isolated ? "http://${var.mirror_ip}:8080/apt" : ""
   })
 }
 

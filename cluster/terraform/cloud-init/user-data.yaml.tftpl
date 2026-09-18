@@ -20,10 +20,23 @@ write_files:
     content: |
       net.ipv4.ip_forward = 1
       net.bridge.bridge-nf-call-iptables = 1
+%{ if apt_mirror != "" ~}
+  # Плоский репозиторий внутри контура. Без подписи: источник свой, а возня с
+  # ключами не добавила бы стенду ни одного нового доказательства.
+  - path: /etc/apt/sources.list.d/quarry-mirror.list
+    content: |
+      deb [trusted=yes] ${apt_mirror} ./
+%{ endif ~}
 
 runcmd:
   - [ swapoff, -a ]
   - [ sed, -i, "/ swap / s/^/#/", /etc/fstab ]
   - [ sysctl, --system ]
+%{ if apt_mirror != "" ~}
+  # Внешние зеркала Ubuntu из контура недоступны: оставь их в списке, и
+  # первый же apt update встанет на таймаутах по пять минут на источник.
+  - [ rm, -f, /etc/apt/sources.list.d/ubuntu.sources, /etc/apt/sources.list ]
+  - [ apt-get, update ]
+%{ endif ~}
 
 final_message: "узел ${hostname} готов, загрузка заняла $UPTIME секунд"

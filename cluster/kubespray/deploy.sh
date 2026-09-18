@@ -5,8 +5,14 @@
 # Kubernetes, и разворачивают его как раз Ansible. k3s показывает контур,
 # Kubespray показывает, что тем же контуром накрывается штатный кластер.
 #
-#   ./deploy.sh              развернуть кластер
-#   ./deploy.sh reset        снести кластер с узлов, машины оставить
+#   ./deploy.sh                развернуть кластер, узлы качают всё из интернета
+#   OFFLINE=1 ./deploy.sh      развернуть в закрытом контуре: файлы и образы
+#                              берутся с зеркала, узлы наружу не ходят вообще
+#   ./deploy.sh reset          снести кластер с узлов, машины оставить
+#
+# Перед офлайн-установкой должно быть сделано:
+#   cluster/offline/collect.sh              собрать артефакты (нужен интернет)
+#   cluster/offline/mirror.sh start <адрес> поднять зеркало в контуре
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +24,11 @@ SSH_KEY="${SSH_KEY:-/root/.ssh/quarry-lab}"
 SSH_USER="${SSH_USER:-ubuntu}"
 INVENTORY="$HERE/inventory/quarry"
 KUBECONFIG_OUT="${KUBECONFIG_OUT:-$HERE/kubeconfig}"
+OFFLINE="${OFFLINE:-0}"
+# Адрес зеркала внутри контура. По умолчанию это шлюз изолированной сети,
+# то есть управляющая машина: у неё единственной есть интерфейс и в контуре,
+# и снаружи, ровно как у бастиона на площадке.
+MIRROR_IP="${MIRROR_IP:-192.168.200.1}"
 
 say() { printf '\n=== %s\n' "$*"; }
 
@@ -71,30 +82,66 @@ ansible_python_interpreter: /usr/bin/python3
 ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 EOF
 
-cat > "$INVENTORY/group_vars/k8s_cluster/quarry.yml" <<EOF
-# Домен кластера намеренно оставлен стандартным (cluster.local): своё имя
-# ломает любые манифесты с полными именами служб.
+# Постоянная часть профиля лежит отдельным файлом: тот же profile.yml читает
+# cluster/offline/collect.sh, когда считает, что нести в контур.
+cp "$HERE/profile.yml" "$INVENTORY/group_vars/k8s_cluster/profile.yml"
 
-# containerd на узлах ходит в наш реестр внутри контура, а не в интернет.
-# Имя постоянное, адрес подставляется отсюда.
+cat > "$INVENTORY/group_vars/k8s_cluster/quarry.yml" <<EOF
+# Файл собирается deploy.sh, править руками нет смысла.
+#
+# containerd на узлах ходит в реестры внутри контура, а не в интернет.
+# Имя registry.quarry.local постоянное, адрес подставляется отсюда.
 containerd_registries_mirrors:
   - prefix: registry.quarry.local:5000
+    server: http://$SERVER_IP:30500
     mirrors:
       - host: http://$SERVER_IP:30500
         capabilities: ["pull", "resolve"]
         skip_verify: true
-
-# kubeadm-кластер, в отличие от k3s, не приносит с собой хранилище:
-# без этого PVC висит без класса и ничего не стартует.
-local_path_provisioner_enabled: true
-local_path_provisioner_is_default_storageclass: "true"
-
-# Стенд скромный по ресурсам, лишнее не ставим.
-dashboard_enabled: false
-metrics_server_enabled: false
-helm_enabled: false
-kube_network_plugin: calico
+$(if [ "$OFFLINE" = "1" ]; then cat <<VNUTRI
+  # Зеркало, с которого узлы берут образы САМОГО кластера. Внутрикластерный
+  # реестр для этого не годится: его ещё нет, пока кластера нет.
+  - prefix: $MIRROR_IP:5000
+    server: http://$MIRROR_IP:5000
+    mirrors:
+      - host: http://$MIRROR_IP:5000
+        capabilities: ["pull", "resolve"]
+        skip_verify: true
+VNUTRI
+fi)
 EOF
+
+if [ "$OFFLINE" = "1" ]; then
+  say "закрытый контур: зеркало $MIRROR_IP"
+  curl -sf -m 5 "http://$MIRROR_IP:5000/v2/" >/dev/null ||
+    { echo "реестр зеркала не отвечает, подними: cluster/offline/mirror.sh start $MIRROR_IP"; exit 1; }
+  curl -sf -m 5 "http://$MIRROR_IP:8080/files/" >/dev/null ||
+    { echo "файловое зеркало не отвечает, подними: cluster/offline/mirror.sh start $MIRROR_IP"; exit 1; }
+
+  REGISTRY_HOST="$MIRROR_IP:5000" FILES_REPO="http://$MIRROR_IP:8080/files"     "$REPO/cluster/offline/render-offline-vars.sh" > "$INVENTORY/group_vars/all/offline.yml"
+  echo "offline.yml собран"
+
+  # Проверка изоляции до установки, а не после: если узел всё ещё видит
+  # интернет, «установка без интернета» ничего не доказывает.
+  say "проверяю, что узлы отрезаны от интернета"
+  for entry in "${NODES[@]}"; do
+    ip="$(echo "$entry" | cut -d' ' -f2)"
+    name="$(echo "$entry" | cut -d' ' -f1)"
+    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i "$SSH_KEY" "$SSH_USER@$ip"       'curl -sfI -m 5 https://registry.k8s.io >/dev/null 2>&1'; then
+      echo "🔴 $name достаёт до registry.k8s.io: это не закрытый контур"
+      exit 1
+    fi
+    echo "$name: наружу не ходит"
+  done
+
+  # 🔴 Кэш apt узлы снимают при первой загрузке, а зеркало с тех пор могло
+  # пополниться. Kubespray свой apt update пропускает, пока кэшу меньше суток,
+  # и установка падает на «No package matching ...», хотя пакет в зеркале есть.
+  say "освежаю кэш apt на узлах"
+  "$VENV/bin/ansible" -i "$INVENTORY/hosts.yaml" all --become     -m ansible.builtin.apt -a "update_cache=yes" -o
+else
+  rm -f "$INVENTORY/group_vars/all/offline.yml"
+fi
 
 say "инвентарь"
 cat "$INVENTORY/hosts.yaml"
