@@ -1,0 +1,11 @@
+{# Адреса реестра для containerd (kubeadm и Kubespray).
+   server задаёт основной адрес, блоки host идут как запасные по порядку. #}
+# Разложено ролью reestr. Свой адрес первым, дальше соседи.
+server = "http://{{ reestr_poryadok[0] }}:{{ reestr_nodeport }}"
+{% for adres in reestr_poryadok %}
+
+[host."http://{{ adres }}:{{ reestr_nodeport }}"]
+  capabilities = ["pull","resolve"]
+  skip_verify = true
+  override_path = false
+{% endfor %}

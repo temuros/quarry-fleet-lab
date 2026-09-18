@@ -1,0 +1,97 @@
+---
+# Часы внутри закрытого контура.
+#
+# Наружу NTP не ходит по условию задачи, поэтому часы расходятся сами: на
+# стенде разошлись на 21 минуту, и это выглядело как «журнал смен отстаёт»,
+# хотя данные шли без задержки. Метку времени событию ставит тот узел, где
+# работает приёмник, так что расхождение часов едет прямо в отчёт по смене.
+
+# 🔴 Порядок шагов обязателен. Отставшие часы ломают apt: «Release file is
+# not valid yet» - репозиторий датирован будущим, и apt его не берёт. То
+# есть пакеты, которыми чинят время, не поставить, пока время не поправлено
+# хотя бы грубо. Сначала date, потом apt, потом chrony держит точно.
+- name: Узнать время управляющей машины
+  ansible.builtin.command: date -u +%s
+  register: vremya_upravlyayushchey
+  changed_when: false
+  # ⚠️ Без check_mode: false пробный прогон (--check) пропускает любую
+  # команду, и роль остаётся без обеих отметок времени: дальше она сравнивает
+  # пустые строки и тихо решает, что часы в порядке. Читающая команда ничего
+  # не меняет, её можно выполнять и в пробном прогоне.
+  check_mode: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Узнать время машины
+  ansible.builtin.command: date -u +%s
+  register: vremya_mashiny
+  changed_when: false
+  check_mode: false
+
+- name: Выставить часы грубо, если расхождение больше порога
+  # Без условия задача меняла бы время каждый прогон и роль никогда не была
+  # бы идемпотентной: «изменено» на ровном месте обесценивает весь отчёт.
+  ansible.builtin.command: "date -u -s @{{ vremya_upravlyayushchey.stdout }}"
+  when: >-
+    (vremya_mashiny.stdout | int - vremya_upravlyayushchey.stdout | int) | abs
+    > vremya_porog_sekund
+  changed_when: true
+
+- name: Поставить chrony и модули ядра
+  # linux-modules-extra привязан к версии ядра: в нём и лежит ptp_kvm,
+  # в базовом облачном образе его нет.
+  ansible.builtin.apt:
+    name:
+      - chrony
+      - "linux-modules-extra-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Включить модуль часов гипервизора
+  community.general.modprobe:
+    name: ptp_kvm
+    state: present
+  # Модуль может быть уже вкомпилирован или загружен: это не повод валить прогон.
+  failed_when: false
+
+- name: Загружать модуль при старте машины
+  # Иначе после перезагрузки /dev/ptp0 не появится и chrony останется без
+  # источника, а часы поедут молча.
+  ansible.builtin.copy:
+    content: "ptp_kvm\n"
+    dest: /etc/modules-load.d/ptp_kvm.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Убедиться, что часы гипервизора видны
+  ansible.builtin.stat:
+    path: /dev/ptp0
+  register: ptp
+  failed_when: not ptp.stat.exists
+
+- name: Выключить systemd-timesyncd
+  # Двум службам времени на одной машине делать нечего: они тянут часы
+  # каждая в свою сторону.
+  ansible.builtin.systemd_service:
+    name: systemd-timesyncd
+    enabled: false
+    state: stopped
+  failed_when: false
+
+- name: Разложить конфигурацию chrony
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Перезапустить chrony
+
+- name: Включить chrony
+  ansible.builtin.systemd_service:
+    name: chrony
+    enabled: true
+    state: started

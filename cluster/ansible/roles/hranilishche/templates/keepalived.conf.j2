@@ -1,0 +1,39 @@
+{# Общий адрес и правила переезда. #}
+# Разложено ролью hranilishche.
+vrrp_script proverka_repliki {
+    script "/usr/local/sbin/quarry-nas-gotov"
+    interval 5
+    fall 2
+    rise 2
+}
+
+vrrp_instance quarry_nas {
+    # Обе машины BACKUP и nopreempt: вернувшаяся из ремонта НЕ забирает
+    # обслуживание обратно, пока работает вторая. Обратное переключение это
+    # решение человека, а не автоматика: данные только что синхронизировались,
+    # и лишний переезд ничего не улучшает.
+    state BACKUP
+    nopreempt
+    interface {{ nas_interfeys }}
+    virtual_router_id 51
+    priority {{ nas_prioritet }}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass quarrynas
+    }
+    virtual_ipaddress {
+        {{ nas_obshchiy_adres }}/24
+    }
+    track_script {
+        proverka_repliki
+    }
+    notify_master "/usr/local/sbin/quarry-nas-glavnyy"
+    notify_backup "/usr/local/sbin/quarry-nas-vedomyy"
+    notify_fault  "/usr/local/sbin/quarry-nas-vedomyy"
+    # ⚠️ Остановка службы это тоже уход в ведомые. Без этой строки машина,
+    # выведенная на обслуживание командой `systemctl stop keepalived`,
+    # отдаёт адрес, но продолжает держать том в режиме записи, и вторая
+    # машина стать главной уже не может.
+    notify_stop   "/usr/local/sbin/quarry-nas-vedomyy"
+}

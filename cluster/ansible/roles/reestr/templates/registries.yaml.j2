@@ -1,0 +1,8 @@
+{# То же самое для k3s: смысл тот же, синтаксис свой. #}
+# Разложено ролью reestr. Свой адрес первым, дальше соседи.
+mirrors:
+  "{{ reestr_imya }}":
+    endpoint:
+{% for adres in reestr_poryadok %}
+      - "http://{{ adres }}:{{ reestr_nodeport }}"
+{% endfor %}

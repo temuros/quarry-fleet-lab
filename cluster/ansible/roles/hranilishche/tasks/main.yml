@@ -1,0 +1,137 @@
+---
+# Хранилище контура из двух машин: реплика диска и общий адрес.
+#
+# Здесь три вещи, и порядок между ними важен:
+#   1. DRBD держит копию диска на второй машине (протокол C: запись
+#      подтверждается, только когда её приняли обе).
+#   2. NFS отдаёт этот диск кластеру, но только с главной машины.
+#   3. keepalived держит общий адрес и переносит его на живую машину.
+#
+# ⚠️ Плей вызывает роль с `serial: 1`. Перезапуск keepalived на главной
+# машине роняет её в ведомые и двигает общий адрес; если сделать это на обеих
+# сразу, том останется без хозяина на несколько секунд, и базы это заметят.
+
+- name: Поставить пакеты хранилища
+  ansible.builtin.apt:
+    name:
+      - drbd-utils
+      - keepalived
+      - nfs-kernel-server
+      - "linux-modules-extra-{{ ansible_kernel }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Включить модуль DRBD
+  community.general.modprobe:
+    name: drbd
+    state: present
+
+- name: Загружать DRBD при старте машины
+  ansible.builtin.copy:
+    content: "drbd\n"
+    dest: /etc/modules-load.d/drbd.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Поднимать реплику при старте машины
+  # Иначе вернувшаяся из ремонта машина выглядит живой, а копии данных на
+  # ней нет.
+  ansible.builtin.systemd_service:
+    name: drbd
+    enabled: true
+  failed_when: false
+
+- name: Описание ресурса DRBD
+  ansible.builtin.template:
+    src: quarry.res.j2
+    dest: /etc/drbd.d/quarry.res
+    owner: root
+    group: root
+    mode: "0644"
+  register: opisanie_resursa
+
+- name: Каталог для данных
+  ansible.builtin.file:
+    path: "{{ nas_katalog }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ nas_prava_kataloga }}"
+
+# --- первая установка: единственное место, где роль трогает данные ----------
+
+- name: Собрать метаданные DRBD
+  # 🔴 Стирает том. Выполняется только при явном nas_pervaya_ustanovka=true.
+  ansible.builtin.command: drbdadm create-md --force quarry
+  when: nas_pervaya_ustanovka | bool
+  changed_when: true
+
+- name: Поднять ресурс
+  ansible.builtin.command: drbdadm up quarry
+  when: nas_pervaya_ustanovka | bool
+  changed_when: true
+  failed_when: false
+
+- name: Объявить первую машину источником данных
+  # DRBD не знает, чьи данные считать правильными, и без этого ждёт решения
+  # человека. Источником назначается машина с большим приоритетом.
+  ansible.builtin.command: drbdadm primary --force quarry
+  when:
+    - nas_pervaya_ustanovka | bool
+    - nas_prioritet == nas_prioritet_starshiy
+  changed_when: true
+
+- name: Файловая система на реплике
+  ansible.builtin.filesystem:
+    fstype: ext4
+    dev: /dev/drbd0
+  when:
+    - nas_pervaya_ustanovka | bool
+    - nas_prioritet == nas_prioritet_starshiy
+
+# --- правила переезда -------------------------------------------------------
+
+- name: Скрипты переключения ролей
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - quarry-nas-glavnyy
+    - quarry-nas-vedomyy
+
+- name: Проверка готовности реплики
+  ansible.builtin.copy:
+    src: quarry-nas-gotov
+    dest: /usr/local/sbin/quarry-nas-gotov
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Правила общего адреса
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Перезапустить keepalived
+
+- name: Экспорт тома кластеру
+  ansible.builtin.copy:
+    content: "{{ nas_katalog }} {{ nas_set }}(rw,sync,no_subtree_check,no_root_squash,fsid=1)\n"
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Перечитать экспорты
+
+- name: Включить keepalived
+  ansible.builtin.systemd_service:
+    name: keepalived
+    enabled: true
+    state: started

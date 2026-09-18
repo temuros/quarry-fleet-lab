@@ -1,0 +1,75 @@
+---
+# Узлы кластера должны знать, где внутренний реестр, и ходить только туда.
+#
+# 🔴 Адресов несколько, и это главное, чему научило учение с гашением узла.
+# Раньше все узлы ходили на NodePort ОДНОГО узла: падал он, и образы
+# переставали скачиваться на всём кластере, хотя реестр был жив на другой
+# машине. Теперь каждый узел обращается сначала к себе, потом к соседям;
+# NodePort слушает на всех узлах, а kube-proxy доводит запрос до живой реплики.
+#
+# ⚠️ Свой адрес это адрес узла в сети контура, а не 127.0.0.1: kube-proxy
+# работает в режиме ipvs, и NodePort на loopback там не обслуживается.
+
+- name: Собрать порядок обхода реестра
+  ansible.builtin.set_fact:
+    reestr_poryadok: >-
+      {{ [ansible_host] + (groups['uzly']
+         | map('extract', hostvars, 'ansible_host')
+         | reject('equalto', ansible_host) | list | sort) }}
+
+- name: Проверить, какой здесь кластер
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_dvoichnyy
+
+- name: Каталог адресов реестра для containerd
+  ansible.builtin.file:
+    path: "/etc/containerd/certs.d/{{ reestr_imya }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not k3s_dvoichnyy.stat.exists
+
+- name: Адреса реестра для containerd
+  # containerd перечитывает certs.d на каждый запрос образа, перезапуск не
+  # нужен: трогать демон на работающем узле дороже, чем польза от этого.
+  ansible.builtin.template:
+    src: hosts.toml.j2
+    dest: "/etc/containerd/certs.d/{{ reestr_imya }}/hosts.toml"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not k3s_dvoichnyy.stat.exists
+
+- name: Узнать, как здесь называется служба k3s
+  # На управляющем узле это k3s, на рабочем k3s-agent. Ошибиться именем
+  # значит перезапустить не ту службу или не перезапустить ничего.
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_glavnaya
+  when: k3s_dvoichnyy.stat.exists
+
+- name: Запомнить имя службы k3s
+  ansible.builtin.set_fact:
+    k3s_sluzhba: "{{ 'k3s' if k3s_glavnaya.stat.exists else 'k3s-agent' }}"
+  when: k3s_dvoichnyy.stat.exists
+
+- name: Каталог настроек k3s
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: k3s_dvoichnyy.stat.exists
+
+- name: Адреса реестра для k3s
+  ansible.builtin.template:
+    src: registries.yaml.j2
+    dest: /etc/rancher/k3s/registries.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when: k3s_dvoichnyy.stat.exists
+  notify: Перезапустить k3s

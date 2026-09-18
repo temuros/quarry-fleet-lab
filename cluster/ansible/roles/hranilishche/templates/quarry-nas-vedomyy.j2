@@ -1,0 +1,8 @@
+#!/bin/sh
+# Машина стала ведомой: перестать отдавать том и отпустить реплику.
+# Разложено ролью hranilishche.
+exportfs -ua || true
+systemctl stop nfs-kernel-server || true
+umount {{ nas_katalog }} 2>/dev/null || true
+drbdadm secondary quarry || true
+logger 'quarry-nas: стал ведомым'

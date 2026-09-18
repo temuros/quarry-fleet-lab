@@ -1,0 +1,11 @@
+---
+# k3s читает registries.yaml только при старте, в отличие от containerd,
+# который перечитывает certs.d на каждый запрос образа.
+#
+# ⚠️ Служба называется по-разному на управляющем узле и на рабочем: k3s и
+# k3s-agent. Имя определяет задача роли, здесь только перезапуск.
+- name: Перезапустить k3s
+  ansible.builtin.systemd_service:
+    name: "{{ k3s_sluzhba }}"
+    state: restarted
+  when: k3s_sluzhba | default('') | length > 0
