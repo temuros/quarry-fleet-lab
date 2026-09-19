@@ -1,10 +1,22 @@
-"""Шлюз EGTS: принимает телеметрию бортов и кладёт её в шину.
+"""Приёмный шлюз бортов: EGTS и Wialon IPS в одну шину.
 
 На площадке между техникой и системой всегда стоит такой шлюз: терминалы
 говорят по своему протоколу поверх TCP, а дальше живёт обычная обработка.
 Здесь он занимает ровно то место, где раньше симулятор писал в Kafka напрямую.
 
-    борт (EGTS/TCP) -> шлюз -> Kafka -> приёмник -> Prometheus -> Grafana
+    борт (EGTS/TCP     :7777) ┐
+                              ├-> шлюз -> Kafka -> приёмник -> Prometheus
+    борт (Wialon IPS/TCP:7778) ┘
+
+🔴 Протокола два намеренно. На карьере техника редко одного поколения: часть
+машин отдаёт EGTS по ГОСТ, часть настроена на Wialon IPS. Система, умеющая
+один протокол, разворачивается там «после замены терминалов», то есть после
+отдельного проекта с деньгами и простоем.
+
+И это же проверяет главное свойство конструкции: оба протокола сходятся в
+ОДНО сообщение шины, и дальше по потоку никто не знает, каким протоколом
+пришли данные. Приёмник показателей, журнал смены и экраны не переписаны ни
+на строку ради второго протокола.
 
 Что важно в шлюзе на реальной площадке и сделано здесь:
 
@@ -19,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import socket
 import time
 
 from confluent_kafka import Producer
@@ -38,18 +51,24 @@ from protocol import (
     razobrat_zapisi,
     sobrat_otvet,
 )
+import ips
 import skhema
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 PORT = int(os.getenv("EGTS_PORT", "7777"))
+WIALON_PORT = int(os.getenv("WIALON_PORT", "7778"))
 METRICS_PORT = int(os.getenv("METRICS_PORT", "8090"))
 
-PAKETY = Counter("egts_packets_total", "Принято пакетов EGTS", ["tip"])
-ZAPISI = Counter("egts_records_total", "Принято записей", ["kind"])
-OSHIBKI = Counter("egts_errors_total", "Ошибки разбора", ["prichina"])
-BORTA = Gauge("egts_connections", "Бортов на связи")
-POSLEDNIY = Gauge("egts_last_record_wall", "Время последней принятой записи")
+# ⚠️ Счётчики названы по сущности, а не по протоколу: протокол стал меткой.
+# Пока метрика звалась egts_records_total, второй протокол пришлось бы либо
+# считать в ней же (и врать именем), либо завести рядом вторую (и складывать
+# их в каждом запросе). Метка решает это один раз.
+PAKETY = Counter("bort_packets_total", "Принято пакетов", ["protokol", "tip"])
+ZAPISI = Counter("bort_records_total", "Принято записей", ["protokol", "kind"])
+OSHIBKI = Counter("bort_errors_total", "Ошибки разбора", ["protokol", "prichina"])
+BORTA = Gauge("bort_connections", "Бортов на связи", ["protokol"])
+POSLEDNIY = Gauge("bort_last_record_wall", "Время последней принятой записи", ["protokol"])
 
 
 def sozdat_producera() -> Producer:
@@ -117,6 +136,10 @@ def zapis_v_soobshchenie(zapis) -> dict | None:
 
 
 class Shlyuz:
+    """Приём EGTS. Отправку в шину делит с приёмом Wialon IPS."""
+
+    protokol = "egts"
+
     def __init__(self, producer: Producer):
         self.producer = producer
         self.nomer_otveta = 0
@@ -127,7 +150,7 @@ class Shlyuz:
 
     async def obsluzhit(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         adres = writer.get_extra_info("peername")
-        BORTA.inc()
+        BORTA.labels(protokol="egts").inc()
         bufer = b""
         terminal = None
         try:
@@ -145,13 +168,13 @@ class Shlyuz:
                         # Битый пакет не повод рвать соединение целиком, но и
                         # разобрать поток дальше нельзя: сдвигаемся на байт и
                         # ищем следующий заголовок.
-                        OSHIBKI.labels(prichina=str(oshibka)[:40]).inc()
+                        OSHIBKI.labels(protokol="egts", prichina=str(oshibka)[:40]).inc()
                         bufer = bufer[1:]
                         continue
                     bufer = bufer[dlina:]
                     if tip != PT_APPDATA:
                         continue
-                    PAKETY.labels(tip="appdata").inc()
+                    PAKETY.labels(protokol="egts", tip="appdata").inc()
                     nomera = []
                     for zapis in razobrat_zapisi(telo):
                         nomera.append(zapis.nomer)
@@ -164,12 +187,12 @@ class Shlyuz:
                         try:
                             soobshchenie = zapis_v_soobshchenie(zapis)
                         except EgtsError as oshibka:
-                            OSHIBKI.labels(prichina=str(oshibka)[:40]).inc()
+                            OSHIBKI.labels(protokol="egts", prichina=str(oshibka)[:40]).inc()
                             continue
                         if soobshchenie is None:
                             continue
-                        ZAPISI.labels(kind=soobshchenie["kind"]).inc()
-                        POSLEDNIY.set(soobshchenie["t_wall"])
+                        ZAPISI.labels(protokol="egts", kind=soobshchenie["kind"]).inc()
+                        POSLEDNIY.labels(protokol="egts").set(soobshchenie["t_wall"])
                         self.otpravit(soobshchenie)
                     if nomera:
                         # Подтверждаем после постановки в очередь отправки, а
@@ -181,7 +204,7 @@ class Shlyuz:
         except (ConnectionResetError, asyncio.IncompleteReadError):
             pass
         finally:
-            BORTA.dec()
+            BORTA.labels(protokol="egts").dec()
             writer.close()
             # Проверка живости от Kubernetes открывает и закрывает порт каждые
             # десять секунд. Если писать в журнал каждое такое соединение,
@@ -198,14 +221,116 @@ class Shlyuz:
             try:
                 self.producer.produce(TOPIC_TELEMETRY, telo)
             except BufferError:
-                OSHIBKI.labels(prichina="очередь Kafka переполнена").inc()
+                OSHIBKI.labels(protokol=self.protokol, prichina="очередь Kafka переполнена").inc()
         self.producer.poll(0)
+
+
+class ShlyuzWialon(Shlyuz):
+    """Приём Wialon IPS. Отличается разбором, но не тем, что уходит в шину.
+
+    🔴 Соединение здесь принадлежит ОДНОЙ машине: терминал называет себя
+    один раз пакетом входа, и все последующие данные его. Поэтому номер
+    борта берётся из входа и помнится на всё соединение, а не читается из
+    каждой записи, как в EGTS.
+    """
+
+    protokol = "wialon"
+
+    async def obsluzhit(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        adres = writer.get_extra_info("peername")
+        BORTA.labels(protokol="wialon").inc()
+        # ⚠️ Ответы здесь короткие, и ядро придержало бы их, ожидая попутных
+        # данных (алгоритм Нагла). Борт в это время ждёт подтверждения и
+        # ничего не шлёт: ровно тот случай, когда придерживание добавляет
+        # задержку на пустом месте.
+        sokket = writer.get_extra_info("socket")
+        if sokket is not None:
+            sokket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        imei = None
+        try:
+            while True:
+                # Пакет заканчивается переводом строки, и readline сам
+                # собирает его из кусков: в TCP половина строки это норма.
+                stroka = await reader.readline()
+                if not stroka:
+                    break
+                try:
+                    tip, telo = ips.razobrat_stroku(stroka.decode("ascii", "replace"))
+                except ips.WialonError as oshibka:
+                    OSHIBKI.labels(protokol="wialon", prichina=str(oshibka)[:40]).inc()
+                    continue
+
+                PAKETY.labels(protokol="wialon", tip=tip.lower()).inc()
+
+                if tip == "L":
+                    try:
+                        imei = ips.razobrat_vhod(telo)
+                    except ips.WialonError as oshibka:
+                        OSHIBKI.labels(protokol="wialon", prichina=str(oshibka)[:40]).inc()
+                        writer.write(ips.otvet("L", 0).encode())
+                        await writer.drain()
+                        continue
+                    writer.write(ips.otvet("L").encode())
+                    await writer.drain()
+                    continue
+
+                if tip == "P":
+                    writer.write(ips.otvet("P", "").encode())
+                    await writer.drain()
+                    continue
+
+                if imei is None:
+                    # Данные без входа принимать нельзя: непонятно, чья это
+                    # машина, а угадывать по адресу соединения значит рано
+                    # или поздно приписать рейсы чужому борту.
+                    OSHIBKI.labels(protokol="wialon", prichina="данные до входа").inc()
+                    writer.write(ips.otvet("D", 0).encode())
+                    await writer.drain()
+                    continue
+
+                if tip == "D":
+                    prinyato = self._prinyat(imei, [telo])
+                    writer.write(ips.otvet("D", 1 if prinyato else 0).encode())
+                    await writer.drain()
+                elif tip == "B":
+                    tela = [t for t in telo.split("|") if t]
+                    prinyato = self._prinyat(imei, tela)
+                    # На досылку отвечаем числом принятых записей: борт
+                    # удалит из своего буфера ровно их и повторит остальное.
+                    writer.write(ips.otvet("B", prinyato).encode())
+                    await writer.drain()
+        except (ConnectionResetError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
+            pass
+        finally:
+            BORTA.labels(protokol="wialon").dec()
+            writer.close()
+            if imei is not None:
+                print(f"борт отключился: {adres}, терминал {imei}", flush=True)
+
+    def _prinyat(self, imei: str, tela: list[str]) -> int:
+        prinyato = 0
+        for telo in tela:
+            try:
+                razobrannoe = ips.razobrat_dannye(telo)
+            except ips.WialonError as oshibka:
+                OSHIBKI.labels(protokol="wialon", prichina=str(oshibka)[:40]).inc()
+                continue
+            soobshchenie = ips.soobshchenie(imei, razobrannoe)
+            if soobshchenie is None:
+                OSHIBKI.labels(protokol="wialon", prichina="неизвестный борт").inc()
+                continue
+            ZAPISI.labels(protokol="wialon", kind=soobshchenie["kind"]).inc()
+            POSLEDNIY.labels(protokol="wialon").set(soobshchenie["t_wall"])
+            self.otpravit(soobshchenie)
+            prinyato += 1
+        return prinyato
 
 
 async def main():
     start_http_server(METRICS_PORT)
     producer = sozdat_producera()
     shlyuz = Shlyuz(producer)
+    shlyuz_wialon = ShlyuzWialon(producer)
 
     async def sbrasyvat():
         while True:
@@ -213,10 +338,12 @@ async def main():
             producer.poll(0)
 
     server = await asyncio.start_server(shlyuz.obsluzhit, "0.0.0.0", PORT)
-    print(f"шлюз EGTS слушает {PORT}, метрики на {METRICS_PORT}", flush=True)
+    server_wialon = await asyncio.start_server(shlyuz_wialon.obsluzhit, "0.0.0.0", WIALON_PORT)
+    print(f"шлюз слушает EGTS {PORT}, Wialon IPS {WIALON_PORT}, "
+          f"метрики на {METRICS_PORT}", flush=True)
     asyncio.create_task(sbrasyvat())
-    async with server:
-        await server.serve_forever()
+    async with server, server_wialon:
+        await asyncio.gather(server.serve_forever(), server_wialon.serve_forever())
 
 
 if __name__ == "__main__":

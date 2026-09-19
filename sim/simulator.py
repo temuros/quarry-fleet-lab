@@ -19,11 +19,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 # ---------------------------------------------------------------- настройки
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
-# Чем борт говорит наружу: kafka это прежний прямой путь в шину, egts это
-# бортовой терминал и протокол, как на реальной машине.
+# Чем борт говорит наружу: kafka это прежний прямой путь в шину, egts и
+# wialon это бортовой терминал и протокол, как на реальной машине. На
+# площадке парк обычно смешанный, поэтому парки стенда говорят по-разному.
 TRANSPORT = os.getenv("TRANSPORT", "kafka")
 EGTS_HOST = os.getenv("EGTS_HOST", "egts-gateway")
 EGTS_PORT = int(os.getenv("EGTS_PORT", "7777"))
+WIALON_PORT = int(os.getenv("WIALON_PORT", "7778"))
 TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 TOPIC_EVENTS = os.getenv("TOPIC_EVENTS", "quarry.events")
 
@@ -546,12 +548,18 @@ def main():
     if TRANSPORT == "egts":
         from egts_uplink import EgtsUplink
         uplink = EgtsUplink(producer, EGTS_HOST, EGTS_PORT, FLEET, bufer_max=BUFFER_MAX)
+    elif TRANSPORT == "wialon":
+        from wialon_uplink import WialonUplink
+        uplink = WialonUplink(producer, EGTS_HOST, WIALON_PORT, FLEET, bufer_max=BUFFER_MAX)
     else:
         uplink = Uplink(producer)
     quarry = Quarry(uplink, STRATEGY)
     ref = {"q": quarry}
     threading.Thread(target=http_server, args=(uplink, ref), daemon=True).start()
-    kuda = f"EGTS {EGTS_HOST}:{EGTS_PORT}" if TRANSPORT == "egts" else f"Kafka {BROKER}"
+    kuda = {
+        "egts": f"EGTS {EGTS_HOST}:{EGTS_PORT}",
+        "wialon": f"Wialon IPS {EGTS_HOST}:{WIALON_PORT}",
+    }.get(TRANSPORT, f"Kafka {BROKER}")
     print("[sim] парк {}, стратегия {}, самосвалов {}, ускорение {}x, телеметрия в {}".format(
         FLEET, STRATEGY, TRUCKS, SPEED, kuda), flush=True)
 

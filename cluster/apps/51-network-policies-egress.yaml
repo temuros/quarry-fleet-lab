@@ -82,6 +82,7 @@ spec:
             matchLabels: { app: egts-gateway }
       ports:
         - { protocol: TCP, port: 7777 }
+        - { protocol: TCP, port: 7778 }
     - to:
         - podSelector:
             matchLabels: { app: kafka }

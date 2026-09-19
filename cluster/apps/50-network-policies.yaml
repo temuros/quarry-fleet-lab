@@ -93,7 +93,9 @@ spec:
         - podSelector:
             matchLabels: { part: sim }
       ports:
+        # Два порта, два протокола: EGTS по ГОСТ и Wialon IPS.
         - { protocol: TCP, port: 7777 }
+        - { protocol: TCP, port: 7778 }
     - from:
         - podSelector:
             matchLabels: { app: prometheus }

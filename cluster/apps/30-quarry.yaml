@@ -138,12 +138,15 @@ spec:
           env:
             - name: KAFKA_BROKER
               value: kafka-0.kafka:9092
+            # 🔴 Второй парк говорит ДРУГИМ протоколом. Это не прихоть: на
+            # карьере техника разных лет, и часть терминалов настроена на
+            # Wialon IPS. Ниже по потоку разницы нет никакой.
             - name: TRANSPORT
-              value: egts
+              value: wialon
             - name: EGTS_HOST
               value: egts-gateway
-            - name: EGTS_PORT
-              value: "7777"
+            - name: WIALON_PORT
+              value: "7778"
             - name: DISPATCH
               value: balanced
             - name: FLEET

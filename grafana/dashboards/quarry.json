@@ -855,13 +855,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(egts_records_total{kind=\"truck\"}[1m]))",
-          "legendFormat": "самосвалы"
+          "expr": "sum by (protokol) (rate(bort_records_total{kind=\"truck\"}[1m]))",
+          "legendFormat": "самосвалы, {{protokol}}"
         },
         {
           "refId": "B",
-          "expr": "sum(rate(egts_records_total{kind=\"excavator\"}[1m]))",
-          "legendFormat": "экскаваторы"
+          "expr": "sum by (protokol) (rate(bort_records_total{kind=\"excavator\"}[1m]))",
+          "legendFormat": "экскаваторы, {{protokol}}"
         }
       ]
     },
@@ -912,7 +912,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "egts_connections",
+          "expr": "sum(bort_connections)",
           "legendFormat": "бортов"
         }
       ]

@@ -28,6 +28,14 @@ NODE_IP="$(TF_DATA_DIR="${TF_DATA_DIR:-/root/.tf-quarry}" terraform -chdir="$TF_
 REGISTRY="$NODE_IP:30500"
 echo "$REGISTRY"
 
+# 🔴 Реплик реестра две, и у каждой СВОЁ хранилище. Через общий вход заливать
+# нельзя: kube-proxy разложит куски одной загрузки по разным репликам, и она
+# оборвётся на середине («blob upload invalid») либо, что хуже, доедет
+# наполовину. Поэтому у каждой реплики свой вход, и льём в обе. Ровно это уже
+# знает seed-registry.sh; здесь оно отстало на одну правку и всплыло при
+# первой же доставке после ввода второй реплики.
+KOPII="${KOPII:-$NODE_IP:30501 $NODE_IP:30502}"
+
 if [ "$SKIP_BUILD" != "1" ]; then
   say "сборка образов снаружи контура"
   # Контекст сборки это корень репозитория: кодек EGTS общий у борта и шлюза,
@@ -47,11 +55,15 @@ if [ "$SKIP_BUILD" != "1" ]; then
 fi
 ls -lh "$ARTIFACTS"/*.tar
 
-say "перенос файлов в реестр внутри контура"
+say "перенос файлов в обе реплики реестра"
 for name in sim collector egts; do
-  skopeo copy --dest-tls-verify=false \
-    "docker-archive:$ARTIFACTS/$name.tar" \
-    "docker://$REGISTRY/quarry/$name:local"
+  echo "--- quarry/$name:local"
+  for kopiya in $KOPII; do
+    skopeo copy --dest-tls-verify=false \
+      "docker-archive:$ARTIFACTS/$name.tar" \
+      "docker://$kopiya/quarry/$name:local" >/dev/null
+    echo "    доставлено в $kopiya"
+  done
 done
 
 say "что лежит в реестре"
