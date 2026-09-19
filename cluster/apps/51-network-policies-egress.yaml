@@ -1,0 +1,226 @@
+# Сетевые политики нагрузки карьера: куда каждый под может ходить.
+#
+# ЗАХОД ВТОРОЙ. Первый закрыл вопрос «кого пускать к поду», этот закрывает
+# обратный: «куда пускать сам под». Смысл виден на подмене: приёмник с чужим
+# кодом внутри всё равно дотянется только до шины и до базы журнала, а из
+# симулятора не открыть вообще ничего, кроме приёмного шлюза и шины.
+#
+# 🔴 Разрешение на DNS обязано быть в КАЖДОЙ политике с исходящим трафиком.
+# Под обращается к службам по именам; без доступа к DNS имя не превращается
+# в адрес, и всё встаёт разом. Отказ при этом выглядит как «сервис
+# недоступен», а не как «политика запретила», и ищут его долго.
+#
+# 🔴 И разрешения на kube-dns здесь МАЛО. Kubespray ставит nodelocaldns:
+# в `/etc/resolv.conf` пода стоит не адрес службы CoreDNS, а link-local
+# адрес кэша на самом узле, 169.254.25.10. Правило с `namespaceSelector`
+# на kube-system его не покрывает, потому что это вообще не под. Именно так
+# оно и проявилось на стенде: соединения, открытые до политик, продолжали
+# работать (журнал рос, будто всё в порядке), а Prometheus, который
+# разрешает имя на каждый съём, потерял две цели из пяти с невнятным
+# `context deadline exceeded`. Перезапусти в тот момент любой под, он бы
+# не поднялся.
+#
+# ⚠️ Prometheus ходит не только за показателями: список узлов он берёт у
+# apiserver по адресу службы `kubernetes` (10.233.0.1:443), а сами показатели
+# снимает с kubelet на узлах (порт 10250 в сети контура). Забыть любое из
+# этих двух значит потерять треть целей и не заметить этого сразу.
+#
+# ⚠️ Тома NFS монтирует kubelet на узле, а не под: правила исходящего трафика
+# хранилища не касаются.
+
+---
+# Запрет по умолчанию на исходящий трафик.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-ishodyashchiy
+  namespace: quarry
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+
+---
+# Имена служб нужны всем без исключения.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns-vsem
+  namespace: quarry
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    # Кэш имён на самом узле: сюда смотрит resolv.conf каждого пода.
+    - to:
+        - ipBlock: { cidr: 169.254.25.10/32 }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # Сам CoreDNS: запасной путь, если кэш на узле отключат.
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+
+---
+# Симуляторы парков: телеметрия в приёмный шлюз, события в шину. Больше
+# наружу им не нужно ничего.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sim-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { part: sim }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: egts-gateway }
+      ports:
+        - { protocol: TCP, port: 7777 }
+    - to:
+        - podSelector:
+            matchLabels: { app: kafka }
+      ports:
+        - { protocol: TCP, port: 9092 }
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egts-gateway-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: egts-gateway }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: kafka }
+      ports:
+        - { protocol: TCP, port: 9092 }
+
+---
+# Приёмник: читает шину, пишет журнал. Это весь его мир.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: collector-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: collector }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: kafka }
+      ports:
+        - { protocol: TCP, port: 9092 }
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - { protocol: TCP, port: 5432 }
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: prometheus }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: collector }
+      ports:
+        - { protocol: TCP, port: 8000 }
+    - to:
+        - podSelector:
+            matchLabels: { app: egts-gateway }
+      ports:
+        - { protocol: TCP, port: 8090 }
+    - to:
+        - podSelector:
+            matchLabels: { app: alertmanager }
+      ports:
+        - { protocol: TCP, port: 9093 }
+    # Список узлов у apiserver и показатели с kubelet на этих узлах.
+    - to:
+        - ipBlock: { cidr: 10.233.0.1/32 }
+      ports:
+        - { protocol: TCP, port: 443 }
+    - to:
+        - ipBlock: { cidr: 192.168.200.0/24 }
+      ports:
+        - { protocol: TCP, port: 10250 }
+
+---
+# Тревога уезжает в журнал смены через приёмник: это единственный получатель
+# внутри контура, почтового релея здесь нет.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: alertmanager }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: collector }
+      ports:
+        - { protocol: TCP, port: 8001 }
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: grafana }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: prometheus }
+      ports:
+        - { protocol: TCP, port: 9090 }
+    - to:
+        - podSelector:
+            matchLabels: { app: postgres }
+      ports:
+        - { protocol: TCP, port: 5432 }
+
+---
+# Шина разговаривает сама с собой: контроллер и брокер живут в одном
+# процессе, но обращаются друг к другу по адресу службы.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-vyhod
+  namespace: quarry
+spec:
+  podSelector:
+    matchLabels: { app: kafka }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: kafka }
+      ports:
+        - { protocol: TCP, port: 9092 }
+        - { protocol: TCP, port: 9093 }
