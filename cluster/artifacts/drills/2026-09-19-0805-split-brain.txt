@@ -1,0 +1,50 @@
+
+=== до учения
+  quarry-nas-1  роль Secondary/Primary связь Connected    общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Secondary связь Connected    общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 14 с
+
+=== рву связь между quarry-nas-1 и quarry-nas-2 (канал реплики и VRRP)
+связь разорвана в 2026-09-19T08:05:49+05:00
+
+=== через 10 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 13 с
+
+=== через 27 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 13 с
+
+=== через 45 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 15 с
+
+=== через 62 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 14 с
+
+=== через 81 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 13 с
+
+=== через 97 с после разрыва
+  quarry-nas-1  роль Secondary/Unknown связь WFConnection общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Unknown связь WFConnection общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 15 с
+
+=== сколько машин держат том в записи
+главных: 1
+✅ главная ровно одна, расхождения копий не будет
+
+=== возвращаю связь
+связь возвращена в 2026-09-19T08:07:38+05:00
+
+=== после возвращения связи
+  quarry-nas-1  роль Secondary/Primary связь SyncTarget   общий адрес нет  том нет
+  quarry-nas-2  роль Primary/Secondary связь SyncSource   общий адрес ДЕРЖИТ том смонтирован
+  арбитр: держит: quarry-nas-2, осталось 14 с

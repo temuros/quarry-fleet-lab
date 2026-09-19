@@ -4,7 +4,13 @@ __pycache__/
 
 # кластер: состояние, ключи и доступы наружу не уезжают
 cluster/**/kubeconfig
-cluster/artifacts/
+# ⚠️ Звёздочка, а не сам каталог: в исключённый целиком каталог git не
+# заходит, и никакое «!» внутри него уже не работает.
+cluster/artifacts/*
+# Хроники учений это не артефакт сборки, а результат работы: по ним видно,
+# что и когда гасили и как система себя вела. README на них ссылается,
+# поэтому они едут в репозиторий, в отличие от образов рядом.
+!cluster/artifacts/drills/
 cluster/k3s/artifacts/
 cluster/terraform/.terraform/
 cluster/terraform/terraform.tfstate*

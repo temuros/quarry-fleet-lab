@@ -1,0 +1,41 @@
+
+=== до аварии
+общий адрес хранилища 192.168.200.251 держит quarry-nas-1 (192.168.200.86)
+событий в журнале: 25975
+
+=== гасим машину хранилища quarry-nas-1
+Domain 'quarry-nas-1' destroyed
+
+[  14 с] общий адрес переехал на quarry-nas-2
+[  14 с] хранилище снова отдаёт том
+
+=== продолжается ли смена
+событий: до аварии 25975, после переключения 25975
+alertmanager-6fbbbc546-wbk2c 1/1 Running
+collector-5b5f6db488-rw9xs 1/1 Running
+egts-gateway-7678dd8886-zb27l 1/1 Running
+grafana-6c6d9c8845-gllns 1/1 Running
+kafka-0 1/1 Running
+postgres-0 1/1 Running
+prometheus-8699799864-5g7rh 1/1 Running
+sim-balanced-fc596cc99-vqnjn 1/1 Running
+sim-fixed-7b459b559f-dxghr 1/1 Running
+
+=== возвращаем quarry-nas-1
+[  45 с] quarry-nas-1 снова отвечает
+
+=== итог
+гасили:                        quarry-nas-1, он держал 192.168.200.251
+адрес переехал через:          14 с
+хранилище снова отдаёт том:    14 с
+событий: до 25975, после 25975, сейчас 25982
+
+
+=== реплика
+192.168.200.86: quarry role:Secondary   disk:Inconsistent   peer role:Primary 
+192.168.200.220: quarry role:Primary   disk:UpToDate   peer role:Secondary 
+
+=== кто держит общий адрес 192.168.200.251
+192.168.200.220
+/dev/drbd0      7.8G  2.5G  4.9G  34% /srv/quarry-nfs
+отчёт: /mnt/c/Users/Temuro/ProjectsAI/QuarryLab/cluster/artifacts/drills/2026-09-19-0249-storage-failover.txt

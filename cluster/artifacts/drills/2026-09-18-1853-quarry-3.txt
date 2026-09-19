@@ -1,0 +1,103 @@
+
+=== до аварии
+2026-09-18T18:53:48+05:00
+узел под удар: quarry-3, простой 6 мин
+quarry-1 Ready 192.168.200.191
+quarry-2 Ready 192.168.200.110
+quarry-3 Ready 192.168.200.40
+-- что живёт на quarry-3 --
+argocd         argocd-repo-server-5589477687-r5n6j
+kube-system    calico-kube-controllers-85987d8f8c-gh4km
+kube-system    calico-node-x5mbw
+kube-system    coredns-774b54f559-wwnv8
+kube-system    kube-proxy-kp6gv
+kube-system    nginx-proxy-quarry-3
+kube-system    nodelocaldns-xkpcj
+quarry-infra   gitea-0
+quarry-infra   registry-648fc85c9-xm586
+quarry         collector-694798b6f7-hwzwq
+quarry         egts-gateway-7678dd8886-6cgg5
+quarry         grafana-6c6d9c8845-4gdqc
+quarry         kafka-init-tcb8s
+quarry         postgres-0
+quarry         prometheus-59d784fc7b-7xz2c
+[   1 с] событий в журнале до аварии: 7597
+
+=== гасим quarry-3
+Domain 'quarry-3' destroyed
+
+[  42 с] кластер заметил потерю узла: NotReady
+[ 340 с] пошло выселение подов с узла
+          argocd-repo-server-5589477687-bs979 Init:0/1
+          argocd-repo-server-5589477687-r5n6j Terminating
+          gitea-0 Terminating
+          registry-648fc85c9-lnwm7 Pending
+          registry-648fc85c9-xm586 Terminating
+          collector-694798b6f7-hwzwq Terminating
+          collector-694798b6f7-zhz54 ContainerCreating
+          egts-gateway-7678dd8886-6cgg5 Terminating
+          egts-gateway-7678dd8886-rp5rr ContainerCreating
+          grafana-6c6d9c8845-4gdqc Terminating
+          grafana-6c6d9c8845-pf9b7 ContainerCreating
+          postgres-0 Terminating
+          prometheus-59d784fc7b-5lplc Pending
+          prometheus-59d784fc7b-7xz2c Terminating
+
+=== что стало за 6 мин простоя
+quarry-1 Ready
+quarry-2 Ready
+quarry-3 NotReady
+-- не работает --
+argocd-repo-server-5589477687-bs979 ErrImagePull
+argocd-repo-server-5589477687-r5n6j Terminating
+gitea-0 Terminating
+registry-648fc85c9-lnwm7 Pending
+registry-648fc85c9-xm586 Terminating
+collector-694798b6f7-hwzwq Terminating
+collector-694798b6f7-zhz54 ImagePullBackOff
+egts-gateway-7678dd8886-6cgg5 Terminating
+egts-gateway-7678dd8886-rp5rr ImagePullBackOff
+grafana-6c6d9c8845-4gdqc Terminating
+postgres-0 Terminating
+prometheus-59d784fc7b-5lplc Pending
+prometheus-59d784fc7b-7xz2c Terminating
+-- где теперь поды quarry --
+collector-694798b6f7-hwzwq      Running   quarry-3
+collector-694798b6f7-zhz54      Pending   quarry-2
+egts-gateway-7678dd8886-6cgg5   Running   quarry-3
+egts-gateway-7678dd8886-rp5rr   Pending   quarry-2
+grafana-6c6d9c8845-4gdqc        Running   quarry-3
+grafana-6c6d9c8845-pf9b7        Running   quarry-2
+kafka-0                         Running   quarry-2
+postgres-0                      Running   quarry-3
+prometheus-59d784fc7b-5lplc     Pending   <none>
+prometheus-59d784fc7b-7xz2c     Running   quarry-3
+sim-balanced-fc596cc99-8wx5m    Running   quarry-2
+sim-fixed-7b459b559f-65nhm      Running   quarry-2
+[ 365 с] журнал смен: недоступен
+
+=== поднимаем quarry-3
+Domain 'quarry-3' started
+
+[  32 с] узел снова Ready
+[  85 с] вся нагрузка вернулась
+
+=== итог
+узел заметили потерянным через: 42 с
+выселение подов началось через: 340 с
+узел вернулся в Ready через:    32 с после включения
+событий в журнале: до 7597, после 8013
+
+quarry-1 Ready
+quarry-2 Ready
+quarry-3 Ready
+collector-694798b6f7-zhz54 Running
+egts-gateway-7678dd8886-rp5rr Running
+grafana-6c6d9c8845-pf9b7 Running
+kafka-0 Running
+postgres-0 Running
+prometheus-59d784fc7b-5lplc Running
+sim-balanced-fc596cc99-8wx5m Running
+sim-fixed-7b459b559f-65nhm Running
+
+отчёт: /mnt/c/Users/Temuro/ProjectsAI/QuarryLab/cluster/artifacts/drills/2026-09-18-1853-quarry-3.txt

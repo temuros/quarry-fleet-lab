@@ -1,0 +1,44 @@
+
+=== до аварии
+журнал смен работает на узле: quarry-1
+событий в журнале: 21384
+data-postgres-0   quarry-nfs
+
+=== гасим quarry-1
+Domain 'quarry-1' destroyed
+
+[  48 с] кластер заметил потерю узла
+[  48 с] ждём 1 мин, как если бы оператор ещё выяснял, что случилось
+-- что с журналом, пока решение не принято --
+postgres-0   Running   quarry-1
+событий: недоступен
+
+=== оператор подтверждает, что узел вышел из строя
+node/quarry-1 modified
+[  41 с] журнал переехал на quarry-3 и отвечает
+
+=== данные на месте?
+событий: до аварии 21384, после переезда 21384
+postgres-0   quarry-3   Running
+
+=== возвращаем quarry-1
+[  40 с] quarry-1 снова Ready
+[  41 с] метка снята, узел снова принимает нагрузку
+
+=== итог
+гасили узел:                       quarry-1
+переезд после подтверждения занял: 41 с
+событий: до 21384, после 21384
+
+quarry-1 Ready
+quarry-2 Ready
+quarry-3 Ready
+collector-694798b6f7-jthcf Running
+egts-gateway-7678dd8886-zb27l Running
+grafana-6c6d9c8845-gllns Running
+kafka-0 Running
+postgres-0 Running
+prometheus-59d784fc7b-v7vh4 Running
+sim-balanced-fc596cc99-vqnjn Running
+sim-fixed-7b459b559f-dxghr Running
+отчёт: /mnt/c/Users/Temuro/ProjectsAI/QuarryLab/cluster/artifacts/drills/2026-09-19-0116-storage.txt
