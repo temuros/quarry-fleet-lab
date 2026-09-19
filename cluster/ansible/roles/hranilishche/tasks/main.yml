@@ -51,6 +51,7 @@
     group: root
     mode: "0644"
   register: opisanie_resursa
+  notify: Применить настройки реплики
 
 - name: Каталог для данных
   ansible.builtin.file:
@@ -104,9 +105,9 @@
     - quarry-nas-glavnyy
     - quarry-nas-vedomyy
 
-- name: Проверка готовности реплики
-  ansible.builtin.copy:
-    src: quarry-nas-gotov
+- name: Проверка готовности реплики и связи с арбитрами
+  ansible.builtin.template:
+    src: quarry-nas-gotov.j2
     dest: /usr/local/sbin/quarry-nas-gotov
     owner: root
     group: root
