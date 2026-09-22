@@ -20,6 +20,7 @@ from prometheus_client import Counter, Gauge, start_http_server
 
 from journal import Journal
 import alerts
+import podpisi
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 GROUP = os.getenv("GROUP_ID", "quarry-collector")
@@ -361,6 +362,10 @@ def ticker():
 
 def main():
     start_http_server(PORT)
+    # Реестр открытых ключей бортов. Поднимается до подписки: приёмник,
+    # который начал считать показатели раньше, чем узнал, с кого требовать
+    # подпись, засчитал бы первые отсчёты без проверки.
+    proverka = podpisi.Proverka.podnyat()
     # Приём тревог от Alertmanager: они попадают в ту же ленту событий, что и
     # происшествия на карьере, потому что в разборе смены это один вопрос.
     alerts.zapustit(journal, ALERTS_PORT)
@@ -409,6 +414,10 @@ def main():
                 except Exception:
                     continue
                 if raw.topic() == TOPIC_TELEMETRY:
+                    # Отсчёт, не прошедший проверку подписи, дальше не идёт:
+                    # ни в показатели, ни в журнал, ни в отчёт по смене.
+                    if not proverka.prinyat(msg):
+                        continue
                     handle_telemetry(msg)
                 else:
                     handle_event(msg)

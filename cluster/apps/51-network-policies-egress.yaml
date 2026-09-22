@@ -83,6 +83,7 @@ spec:
       ports:
         - { protocol: TCP, port: 7777 }
         - { protocol: TCP, port: 7778 }
+        - { protocol: UDP, port: 7779 }
     - to:
         - podSelector:
             matchLabels: { app: kafka }

@@ -1,4 +1,7 @@
 __pycache__/
+
+# Снимки и следы Playwright: делаются на прогоне, в репозиторий не едут.
+.playwright-mcp/
 *.pyc
 .env
 

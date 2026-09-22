@@ -139,14 +139,19 @@ spec:
             - name: KAFKA_BROKER
               value: kafka-0.kafka:9092
             # 🔴 Второй парк говорит ДРУГИМ протоколом. Это не прихоть: на
-            # карьере техника разных лет, и часть терминалов настроена на
-            # Wialon IPS. Ниже по потоку разницы нет никакой.
+            # карьере техника разных лет. Здесь это подписанные заявления:
+            # каждый отсчёт подписан ключом борта, подтверждений нет, а
+            # протухшее после обрыва не досылается. Значение `wialon` вернёт
+            # парк на Wialon IPS, порт 7778. Ниже по потоку разницы нет
+            # никакой ни в том, ни в другом случае.
             - name: TRANSPORT
-              value: wialon
+              value: statement
             - name: EGTS_HOST
               value: egts-gateway
-            - name: WIALON_PORT
-              value: "7778"
+            - name: STATEMENT_PORT
+              value: "7779"
+            - name: STATEMENT_TTL_SEC
+              value: "10"
             - name: DISPATCH
               value: balanced
             - name: FLEET

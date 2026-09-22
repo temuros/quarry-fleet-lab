@@ -1,22 +1,29 @@
-"""Приёмный шлюз бортов: EGTS и Wialon IPS в одну шину.
+"""Приёмный шлюз бортов: EGTS, Wialon IPS и подписанные заявления в одну шину.
 
 На площадке между техникой и системой всегда стоит такой шлюз: терминалы
 говорят по своему протоколу поверх TCP, а дальше живёт обычная обработка.
 Здесь он занимает ровно то место, где раньше симулятор писал в Kafka напрямую.
 
-    борт (EGTS/TCP     :7777) ┐
-                              ├-> шлюз -> Kafka -> приёмник -> Prometheus
-    борт (Wialon IPS/TCP:7778) ┘
+    борт (EGTS/TCP        :7777) ┐
+    борт (Wialon IPS/TCP  :7778) ├-> шлюз -> Kafka -> приёмник -> Prometheus
+    борт (заявления/UDP   :7779) ┘
 
-🔴 Протокола два намеренно. На карьере техника редко одного поколения: часть
+🔴 Протокола три намеренно. На карьере техника редко одного поколения: часть
 машин отдаёт EGTS по ГОСТ, часть настроена на Wialon IPS. Система, умеющая
 один протокол, разворачивается там «после замены терминалов», то есть после
-отдельного проекта с деньгами и простоем.
+отдельного проекта с деньгами и простоем. Третий протокол отвечает на другой
+вопрос: не «дошло ли», а «этот отсчёт правда с борта и его не правили».
 
-И это же проверяет главное свойство конструкции: оба протокола сходятся в
+⚠️ Подпись заявления шлюз НЕ проверяет и проверять не должен. Шлюз стоит
+внутри периметра диспетчерской, и проверка здесь доказывала бы только то, что
+диспетчерская не подделывает данные сама у себя. Заявление едет через шину
+целиком, вместе с подписью, и проверяет его приёмник показателей.
+
+И это же проверяет главное свойство конструкции: все три протокола сходятся в
 ОДНО сообщение шины, и дальше по потоку никто не знает, каким протоколом
 пришли данные. Приёмник показателей, журнал смены и экраны не переписаны ни
-на строку ради второго протокола.
+на строку ради второго и третьего протоколов. Третий добавляет к сообщению
+одно поле, подпись, и не трогает ни одного прежнего.
 
 Что важно в шлюзе на реальной площадке и сделано здесь:
 
@@ -29,6 +36,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import socket
@@ -53,11 +61,13 @@ from protocol import (
 )
 import ips
 import skhema
+import zayavlenie
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 PORT = int(os.getenv("EGTS_PORT", "7777"))
 WIALON_PORT = int(os.getenv("WIALON_PORT", "7778"))
+STATEMENT_PORT = int(os.getenv("STATEMENT_PORT", "7779"))
 METRICS_PORT = int(os.getenv("METRICS_PORT", "8090"))
 
 # ⚠️ Счётчики названы по сущности, а не по протоколу: протокол стал меткой.
@@ -69,6 +79,19 @@ ZAPISI = Counter("bort_records_total", "Принято записей", ["protok
 OSHIBKI = Counter("bort_errors_total", "Ошибки разбора", ["protokol", "prichina"])
 BORTA = Gauge("bort_connections", "Бортов на связи", ["protokol"])
 POSLEDNIY = Gauge("bort_last_record_wall", "Время последней принятой записи", ["protokol"])
+
+# Отсчёты, пришедшие после своего срока годности. Их не кладут в шину, и это
+# главный показатель третьего протокола: видно, сколько данных сознательно
+# выброшено вместо того, чтобы залить очередь устаревшим.
+PROTUHLO = Counter("bort_statement_expired_total",
+                   "Заявлений отвергнуто по сроку годности", ["protokol"])
+ZHIZN = Gauge("bort_statement_life_seconds",
+              "Сколько оставалось жить принятому заявлению", ["protokol"])
+# Сколько отсчётов борт выбросил у себя, не отправляя. Приходит отдельным
+# подписанным отчётом после восстановления канала: иначе потеря данных на
+# борту остаётся молчаливой, а в потоке видно только разрыв.
+NA_BORTU = Counter("bort_statement_dropped_on_board_total",
+                   "Отсчётов выброшено на борту по сроку годности", ["protokol"])
 
 
 def sozdat_producera() -> Producer:
@@ -326,24 +349,125 @@ class ShlyuzWialon(Shlyuz):
         return prinyato
 
 
+class ShlyuzZayavleniy(Shlyuz, asyncio.DatagramProtocol):
+    """Приём подписанных заявлений по UDP.
+
+    🔴 Соединения здесь нет вовсе, и это не упрощение стенда, а свойство
+    протокола: одно заявление это одна дейтаграмма, подтверждения не будет.
+    Поэтому «бортов на связи» считается не по сокетам, а по номерам бортов,
+    от которых что-то приходило в последние полминуты.
+
+    ⚠️ Что шлюз проверяет, а что нет. Проверяет срок годности, канал и то,
+    что заявление вообще разбирается: всё это не требует ключей и отсекает
+    мусор до шины. Подпись НЕ проверяет: её проверяет приёмник показателей,
+    и только там проверка что-то доказывает.
+    """
+
+    protokol = "statement"
+    PAMYAT_SEK = 30.0
+
+    def __init__(self, producer: Producer):
+        super().__init__(producer)
+        self.vidno: dict[int, float] = {}
+        # Отчёт борта несёт счётчик с начала работы, а Prometheus считает
+        # приращениями: помним прошлое значение по каждому борту.
+        self.vybrosheno: dict[int, int] = {}
+
+    def datagram_received(self, dannye: bytes, adres):  # noqa: N802 - имя из asyncio
+        PAKETY.labels(protokol="statement", tip="datagram").inc()
+        try:
+            z = zayavlenie.Zayavlenie.iz_baytov(dannye)
+            razobrannoe = zayavlenie.razobrat_telo(z.telo)
+        except zayavlenie.ZayavlenieError as oshibka:
+            OSHIBKI.labels(protokol="statement", prichina=str(oshibka)[:40]).inc()
+            return
+        if z.podpis is None:
+            OSHIBKI.labels(protokol="statement", prichina="заявление без подписи").inc()
+            return
+        if z.kanal != zayavlenie.KANAL_TELEMETRIYA:
+            OSHIBKI.labels(protokol="statement", prichina="чужой канал").inc()
+            return
+
+        ostalos = razobrannoe["godno_do"] - time.time()
+        if ostalos < 0:
+            # Протухшее в шину не идёт. Такое приходит либо после
+            # восстановления канала, либо когда часы борта разошлись с
+            # серверными: и то и другое лучше видеть счётчиком, чем в данных.
+            PROTUHLO.labels(protokol="statement").inc()
+            return
+        ZHIZN.labels(protokol="statement").set(ostalos)
+        self.vidno[razobrannoe["oid"]] = time.monotonic()
+
+        if razobrannoe["kind"] == "otchet":
+            self._prinyat_otchet(razobrannoe)
+            return
+
+        soobshchenie = zayavlenie.v_soobshchenie(razobrannoe)
+        # Заявление едет через шину целиком: приёмник показателей проверяет
+        # подпись по тем же байтам, которые подписал борт, а не по нашему
+        # пересказу. Иначе шлюзу пришлось бы верить на слово.
+        soobshchenie["zayavlenie"] = base64.b64encode(dannye).decode()
+        ZAPISI.labels(protokol="statement", kind=soobshchenie["kind"]).inc()
+        POSLEDNIY.labels(protokol="statement").set(soobshchenie["t_wall"])
+        self.otpravit(soobshchenie)
+
+    def _prinyat_otchet(self, razobrannoe: dict):
+        """Отчёт борта о выброшенном. В шину не идёт: это не телеметрия.
+
+        ⚠️ Подпись отчёта шлюз тоже не проверяет, и счётчику поэтому можно
+        верить ровно настолько, насколько доверяешь сети. Отчёт нужен, чтобы
+        объяснить разрыв в потоке, а не чтобы на него ссылаться в споре: для
+        спора есть подписанные отсчёты, которые дошли.
+        """
+        oid = razobrannoe["oid"]
+        bylo = self.vybrosheno.get(oid, 0)
+        stalo = razobrannoe["ustarelo"]
+        if stalo > bylo:
+            NA_BORTU.labels(protokol="statement").inc(stalo - bylo)
+            self.vybrosheno[oid] = stalo
+        PAKETY.labels(protokol="statement", tip="otchet").inc()
+
+    def peresschitat_borta(self):
+        porog = time.monotonic() - self.PAMYAT_SEK
+        self.vidno = {oid: kogda for oid, kogda in self.vidno.items() if kogda >= porog}
+        BORTA.labels(protokol="statement").set(len(self.vidno))
+
+
 async def main():
     start_http_server(METRICS_PORT)
+    # 🔴 Счётчики с метками заводятся заранее, нулями. Счётчик, который
+    # появляется в момент первого события, для `rate()` невидим: первая точка
+    # ряда становится основанием отсчёта, и скачок с нуля до трёх тысяч даёт
+    # на графике ровный ноль. Найдено на стенде: панель молчала при
+    # заполненном счётчике.
+    PROTUHLO.labels(protokol="statement")
+    NA_BORTU.labels(protokol="statement")
     producer = sozdat_producera()
     shlyuz = Shlyuz(producer)
     shlyuz_wialon = ShlyuzWialon(producer)
+    shlyuz_zayavleniy = ShlyuzZayavleniy(producer)
 
     async def sbrasyvat():
         while True:
             await asyncio.sleep(1)
             producer.poll(0)
+            shlyuz_zayavleniy.peresschitat_borta()
 
     server = await asyncio.start_server(shlyuz.obsluzhit, "0.0.0.0", PORT)
     server_wialon = await asyncio.start_server(shlyuz_wialon.obsluzhit, "0.0.0.0", WIALON_PORT)
+    # ⚠️ Приём дейтаграмм это не сервер: `serve_forever` у него нет, объект
+    # живёт, пока жив цикл событий. Потерять ссылку на транспорт значит
+    # получить молча закрытый порт.
+    transport, _ = await asyncio.get_running_loop().create_datagram_endpoint(
+        lambda: shlyuz_zayavleniy, local_addr=("0.0.0.0", STATEMENT_PORT))
     print(f"шлюз слушает EGTS {PORT}, Wialon IPS {WIALON_PORT}, "
-          f"метрики на {METRICS_PORT}", flush=True)
+          f"заявления по UDP {STATEMENT_PORT}, метрики на {METRICS_PORT}", flush=True)
     asyncio.create_task(sbrasyvat())
-    async with server, server_wialon:
-        await asyncio.gather(server.serve_forever(), server_wialon.serve_forever())
+    try:
+        async with server, server_wialon:
+            await asyncio.gather(server.serve_forever(), server_wialon.serve_forever())
+    finally:
+        transport.close()
 
 
 if __name__ == "__main__":

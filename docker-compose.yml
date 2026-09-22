@@ -70,8 +70,8 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Шлюз телеметрии: борта говорят с ним по EGTS, он кладёт данные в шину.
-  # Ровно это место на площадке занимает приёмник телематики.
+  # Шлюз телеметрии: борта говорят с ним по трём протоколам, он кладёт данные
+  # в одну шину. Ровно это место на площадке занимает приёмник телематики.
   egts-gateway:
     build:
       context: .
@@ -80,9 +80,15 @@ services:
     environment:
       KAFKA_BROKER: kafka:9092
       EGTS_PORT: "7777"
+      WIALON_PORT: "7778"
+      STATEMENT_PORT: "7779"
       METRICS_PORT: "8090"
     ports:
       - "7777:7777"
+      - "7778:7778"
+      # ⚠️ Проброс UDP пишется явно: без `/udp` Docker откроет порт TCP, и
+      # дейтаграммы уйдут в никуда, не подав признака ошибки.
+      - "7779:7779/udp"
       - "8090:8090"
     depends_on:
       kafka-init:
@@ -117,6 +123,9 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # Второй парк говорит третьим протоколом: подписанные заявления по UDP.
+  # Протокол меняется одной переменной: `wialon` вернёт парк на Wialon IPS
+  # (порт 7778), `egts` на EGTS. Кодеки всех трёх лежат в образе.
   sim-balanced:
     build:
       context: .
@@ -124,9 +133,12 @@ services:
     container_name: quarry-sim-balanced
     environment:
       KAFKA_BROKER: kafka:9092
-      TRANSPORT: egts
+      TRANSPORT: statement
       EGTS_HOST: egts-gateway
-      EGTS_PORT: "7777"
+      STATEMENT_PORT: "7779"
+      # Сколько отсчёт годен. После обрыва канала уезжает только то, что ещё
+      # годно: остальное борт выбрасывает, а не заливает им приёмник.
+      STATEMENT_TTL_SEC: "10"
       DISPATCH: balanced
       FLEET: balanced
       TRUCKS: "8"

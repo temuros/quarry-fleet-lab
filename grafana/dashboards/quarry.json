@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 3,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -812,8 +812,8 @@
     {
       "type": "timeseries",
       "id": 12,
-      "title": "Приём с бортов по EGTS, записей в секунду",
-      "description": "Столько записей приходит от бортовых терминалов. Если здесь ноль, а поток телеметрии ещё идёт, значит вещает буфер, а борта молчат.",
+      "title": "Приём с бортов, записей в секунду",
+      "description": "Столько записей приходит от бортовых терминалов, по протоколам. Если здесь ноль, а поток телеметрии ещё идёт, значит вещает буфер, а борта молчат.",
       "datasource": {
         "type": "prometheus",
         "uid": "quarry-prom"
@@ -914,6 +914,230 @@
           "refId": "A",
           "expr": "sum(bort_connections)",
           "legendFormat": "бортов"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 14,
+      "title": "Подписанная телеметрия: проверено и отвергнуто",
+      "description": "Отсчёты парка с подписью. Проверенные попадают в показатели и в журнал смены, отвергнутые не попадают никуда, кроме этого счётчика. «Выброшено на борту» это протухшее за время обрыва: борт сам о нём отчитался подписанным отчётом, когда канал вернулся.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(quarry_statement_verified_total[1m]))",
+          "legendFormat": "подпись сошлась"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(bort_statement_dropped_on_board_total[1m]))",
+          "legendFormat": "выброшено на борту (протухло)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(bort_statement_expired_total[1m]))",
+          "legendFormat": "протухло на шлюзе"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (prichina) (rate(quarry_statement_rejected_total[1m]))",
+          "legendFormat": "отвергнуто: {{prichina}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 15,
+      "title": "Задержка приёма по паркам: буфер против срока годности",
+      "description": "Тот же обрыв канала выглядит по-разному. Парк с гарантией доставки после восстановления вываливает накопленный буфер, и задержка приёма уезжает вверх на всю глубину обрыва. Парк с подписанными заявлениями шлёт только то, что ещё годно, и задержка не выходит за срок годности.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quarry_ingest_lag_seconds",
+          "legendFormat": "парк {{fleet}}"
+        },
+        {
+          "refId": "B",
+          "expr": "quarry_sla_lag_seconds",
+          "legendFormat": "порог площадки"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 16,
+      "title": "Цена подписи: проверка одного отсчёта",
+      "description": "Сколько приёмник тратит на проверку одной подписи. Родное исполнение Ed25519 считает её за десятки микросекунд, чистый Python в сто раз дольше: на потоке в сотню отсчётов в секунду это разница между незаметным и половиной ядра.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 5,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4C8DFF"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(quarry_statement_verify_seconds_total[5m])) / clamp_min(sum(rate(quarry_statement_verified_total[5m])), 0.001)",
+          "legendFormat": "секунд на отсчёт"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 17,
+      "title": "Отсчётов не принято, всего за прогон",
+      "description": "Протухшие на шлюзе плюс не прошедшие проверку подписи. Ненулевая вторая часть это не потеря данных, а попытка положить в шину то, чего борт не подписывал: смотреть, кто пишет в шину помимо шлюза.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "quarry-prom"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#F2CC0C"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "C",
+          "expr": "sum(bort_statement_dropped_on_board_total)",
+          "legendFormat": "выброшено на борту"
+        },
+        {
+          "refId": "A",
+          "expr": "sum(bort_statement_expired_total)",
+          "legendFormat": "протухло"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(quarry_statement_rejected_total)",
+          "legendFormat": "отвергнуто"
         }
       ]
     }

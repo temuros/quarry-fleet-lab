@@ -93,9 +93,13 @@ spec:
         - podSelector:
             matchLabels: { part: sim }
       ports:
-        # Два порта, два протокола: EGTS по ГОСТ и Wialon IPS.
+        # Три порта, три протокола: EGTS по ГОСТ, Wialon IPS и подписанные
+        # заявления. ⚠️ У третьего протокол UDP, и разрешение на TCP того же
+        # номера его не пускает: политика молча роняет дейтаграммы, а на
+        # дашборде это выглядит как «борта замолчали».
         - { protocol: TCP, port: 7777 }
         - { protocol: TCP, port: 7778 }
+        - { protocol: UDP, port: 7779 }
     - from:
         - podSelector:
             matchLabels: { app: prometheus }

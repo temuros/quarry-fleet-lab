@@ -1,0 +1,23 @@
+{
+  "opisanie": "Открытые ключи бортов. Закрытая часть остаётся в терминале.",
+  "podpisannye_parki": [
+    "balanced"
+  ],
+  "borta": {
+    "210001": "TUOp6nzzI7f3q+a5tjqtrcjn/2kFXOtbDp1sfRopeK8=",
+    "210002": "HMeBuJ6jcQIgxL6WjT9wGd9RcDCksP2SNa8com/U98M=",
+    "210003": "Lmfon8EPzA2QKmyRwRspJpIOCaxnkx6DRhdKNFlXmQg=",
+    "210004": "xdzZqB15Qlak7xTprY8GK+4/RqQkxMheAGhSRwLlBSc=",
+    "210005": "/vTJX9GzH4IVtT/y35K+8sd9kbVrWedo+5UFZ22kbOs=",
+    "210006": "mhficpM9605lXhjpS/F24pDoFVDkVcYQCAmz+XbVI9M=",
+    "210007": "hnUp7wEzxN5iz73gkOeLpg5uiCNiPPNhxVAfoedOHVo=",
+    "210008": "Zek+pNFo4s9vcbrBfyQ3iOs4bk7Wt8nG7yRyEdQv+d4=",
+    "210009": "l6h0NrprN4B5VUBnpYT9AX9bOjlmbtKpwCZmdOfHjA4=",
+    "210010": "czpN68vHhNcbzBM8dQdyJvXY50sxFyHqJ2XH0R28Cb4=",
+    "210011": "88JDHbyslkjj9j4vqXUEQreawVG7ZuAnPLjyHWpH1Vk=",
+    "210012": "evyF3hYVi66UGLGBhLx90uLQ9jTeiJoYFhHouxJT+Jo=",
+    "220001": "j7IB2Q6iKwfvKBsmLccOgt8LSEG/87ZUtFSVkmes7yo=",
+    "220002": "U9yuXT1drkooKU1RoJjxIqExG8a/FSbWbVBjYgEw8jY=",
+    "220003": "d/oJk+HfbAN0IIDzNUDk/YRst86HvjVXj77ilqKd6Ho="
+  }
+}

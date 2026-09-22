@@ -19,13 +19,18 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 # ---------------------------------------------------------------- настройки
 
 BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
-# Чем борт говорит наружу: kafka это прежний прямой путь в шину, egts и
-# wialon это бортовой терминал и протокол, как на реальной машине. На
-# площадке парк обычно смешанный, поэтому парки стенда говорят по-разному.
+# Чем борт говорит наружу: kafka это прежний прямой путь в шину, egts,
+# wialon и statement это бортовой терминал и протокол, как на реальной
+# машине. На площадке парк обычно смешанный, поэтому парки стенда говорят
+# по-разному.
 TRANSPORT = os.getenv("TRANSPORT", "kafka")
 EGTS_HOST = os.getenv("EGTS_HOST", "egts-gateway")
 EGTS_PORT = int(os.getenv("EGTS_PORT", "7777"))
 WIALON_PORT = int(os.getenv("WIALON_PORT", "7778"))
+STATEMENT_PORT = int(os.getenv("STATEMENT_PORT", "7779"))
+# Сколько отсчёт годен на третьем протоколе. Протухшее не досылается: смысл
+# в том, чтобы после обрыва не заливать приёмник вчерашними координатами.
+STATEMENT_TTL_SEC = float(os.getenv("STATEMENT_TTL_SEC", "10"))
 TOPIC_TELEMETRY = os.getenv("TOPIC_TELEMETRY", "quarry.telemetry")
 TOPIC_EVENTS = os.getenv("TOPIC_EVENTS", "quarry.events")
 
@@ -520,6 +525,9 @@ def http_server(uplink, quarry_ref):
                 "link": "up" if uplink.online else "down",
                 "buffered": len(uplink.buffer),
                 "dropped": uplink.dropped,
+                # Протухло на борту: есть только у протокола со сроком
+                # годности, у остальных всегда ноль.
+                "expired": getattr(uplink, "ustarelo", 0),
             })
 
         def _ok(self, body):
@@ -551,6 +559,10 @@ def main():
     elif TRANSPORT == "wialon":
         from wialon_uplink import WialonUplink
         uplink = WialonUplink(producer, EGTS_HOST, WIALON_PORT, FLEET, bufer_max=BUFFER_MAX)
+    elif TRANSPORT == "statement":
+        from statement_uplink import StatementUplink
+        uplink = StatementUplink(producer, EGTS_HOST, STATEMENT_PORT, FLEET,
+                                 bufer_max=BUFFER_MAX, zhizn_sek=STATEMENT_TTL_SEC)
     else:
         uplink = Uplink(producer)
     quarry = Quarry(uplink, STRATEGY)
@@ -559,6 +571,8 @@ def main():
     kuda = {
         "egts": f"EGTS {EGTS_HOST}:{EGTS_PORT}",
         "wialon": f"Wialon IPS {EGTS_HOST}:{WIALON_PORT}",
+        "statement": (f"подписанные заявления {EGTS_HOST}:{STATEMENT_PORT}/udp, "
+                      f"срок годности {STATEMENT_TTL_SEC:.0f} с"),
     }.get(TRANSPORT, f"Kafka {BROKER}")
     print("[sim] парк {}, стратегия {}, самосвалов {}, ускорение {}x, телеметрия в {}".format(
         FLEET, STRATEGY, TRUCKS, SPEED, kuda), flush=True)
